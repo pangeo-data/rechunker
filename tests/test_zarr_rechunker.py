@@ -50,6 +50,9 @@ def test_consolidate_chunks_limit_error():
     with pytest.raises(ValueError, match=r'chunk_limits .* are smaller than chunks .*'):
         consolidate_chunks(shape, chunks, itemsize, max_mem,
                            chunk_limits=chunk_limits)
+    # but don't raise an error if that axis is not included
+    consolidate_chunks(shape, chunks, itemsize, max_mem, axes=(0,),
+                       chunk_limits=chunk_limits)
 
 
 @pytest.mark.parametrize("shape", [(1000, 50, 1800, 3600),])
