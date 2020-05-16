@@ -5,8 +5,6 @@ import math
 from math import prod
 from functools import reduce
 
-import numpy as np # type: ignore
-
 from typing import Callable, Iterable, Sequence, Union, Optional, List, Tuple
 
 
@@ -14,7 +12,7 @@ def consolidate_chunks(shape: Sequence[int],
                        chunks: Sequence[int],
                        itemsize: int,
                        max_mem: int,
-                       chunk_limits: Optional[Sequence[Optional[int]]]=None) -> Sequence[int]:
+                       chunk_limits: Optional[Sequence[Optional[int]]]=None) -> Tuple[int, ...]:
     """
     Consolidate input chunks up to a certain memory limit. Consolidation starts on the
     highest axis and proceeds towards axis 0.
@@ -77,55 +75,79 @@ def consolidate_chunks(shape: Sequence[int],
     return tuple(new_chunks)
 
 
-# WIP
-def intermediate_chunks(source_shape: Sequence[int],
-                          source_chunks: Sequence[int],
-                          target_shape: Sequence[int],
-                          target_chunks: Sequence[int],
-                          itemsize: int,
-                          max_mem: int) -> Tuple[Sequence[int]]:
+def rechunking_plan(shape: Sequence[int],
+                    source_chunks: Sequence[int],
+                    target_chunks: Sequence[int],
+                    itemsize: int,
+                    max_mem: int,
+                    consolidate_reads: bool=True,
+                    consolidate_writes: bool=True) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
+    """
+    Parameters
+    ----------
+    shape : Tuple
+        Array shape
+    source_chunks : Tuple
+        Original chunk shape (must be in form (5, 10, 20), no irregular chunks)
+    target_chunks : Tuple
+        Target chunk shape (must be in form (5, 10, 20), no irregular chunks)
+    max_mem : Int
+        Maximum permissible chunk memory size, measured in units of itemsize
+    chunk_limits : Tuple, optional
+        Maximum size of each chunk along each axis. If None, don't consolidate
+        axis. If -1, no limit.
+
+    Returns
+    -------
+    new_chunks : tuple
+        The new chunks, size guaranteed to be <= mam_mem
+    """
+    ndim = len(shape)
+    if len(source_chunks) != ndim:
+        raise ValueError(f"source_chunks {source_chunks} must have length {ndim}")
+    if len(target_chunks) != ndim:
+        raise ValueError(f"target_chunks {target_chunks} must have length {ndim}")
+
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
-    assert source_chunk_mem <= max_mem
-    assert target_chunk_mem <= max_mem
-    assert target_shape == source_shape
-    ndim = len(source_shape)
-    assert len(source_chunks) == ndim
-    assert len(target_chunks) == ndim
+    if source_chunk_mem > max_mem:
+        raise ValueError(f"Source chunk memory ({source_chunk_mem}) exceeds max_mem ({max_mem})")
+    if target_chunk_mem > max_mem:
+        raise ValueError(f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})")
 
+    if consolidate_reads:
+        read_chunk_limits: List[Optional[int]]
+        read_chunk_limits = [] #
+        for n_ax, (sc, tc) in enumerate(zip(source_chunks, target_chunks)):
+            read_chunk_lim: Optional[int]
+            if tc > sc:
+                # consolidate reads over this axis, up to the target chunk size
+                read_chunk_lim = tc
+            else:
+                # don't consolidate reads over this axis
+                read_chunk_lim = None
+            read_chunk_limits.append(read_chunk_lim)
 
-    read_chunk_limits = ndim * [None]
-    for n_ax, (sc, tc) in enumerate(zip(source_chunks, target_chunks)):
-        if tc > sc:
-             read_chunk_limits = 0
+        read_chunks = consolidate_chunks(shape, source_chunks, itemsize,
+                                         max_mem, read_chunk_limits)
+    else:
+        read_chunks = tuple(source_chunks)
 
-    # Greatest common demoninator chunks.
-    # These are the smallest possible chunks which evenly fit into
-    # both the source and target.
+    # Intermediate chunks  are the smallest possible chunks which evenly fit
+    # into both read_chunks and target_chunks.
     # Example:
-    #   source_chunks: (20, 5)
-    #   target_chunks: (4, 25)
-    #.  gcd_chunks:    (4, 5)
+    #   read_chunks:            (20, 5)
+    #   target_chunks:          (4, 25)
+    #.  intermediate_chunks:    (4, 5)
     # We don't need to check their memory usage: they are guaranteed to be smaller
-    # than both source and target chunks.
-    gcd_chunks = [math.gcd(c_source, c_target) for
-                  c_source, c_target in zip(source_chunks, target_chunks)]
+    # than both read and target chunks.
+    intermediate_chunks = [math.gcd(c_read, c_target) for
+                           c_read, c_target in zip(read_chunks, target_chunks)]
 
+    if consolidate_writes:
+        write_chunks = consolidate_chunks(shape, target_chunks, itemsize,
+                                          max_mem)
+    else:
+        write_chunks = tuple(target_chunks)
 
-    # Now consolidate input and output chunks.
-    # We read from many chunks at once and write to many chunks at once.
-    # But we can't have overlapping writes!
-    consolidate_source_axes = [] # type: List(int)
-    consolidate_target_axes = [] # type: List(int)
-    for n_ax in range(ndim):
-        # many intermediate chunks to each target chunk
-        # can consolidate reads
-        if gcd_chunks[n_ax] < target_chunks[n_ax]:
-            consolidate_source_axes.append(n_ax)
-
-    read_chunks = consolidate_chunks(source_shape, source_chunks, itemsize,
-                                     max_mem, axes=consolidate_source_axes,
-                                     chunk_limits=target_chunks)
-
-    return (gcd_chunks,)
-        # input checks
+    return read_chunks, tuple(intermediate_chunks), write_chunks

@@ -3,8 +3,8 @@
 """Tests for `zarr_rechunker` package."""
 
 import pytest
-from zarr_rechunker.zarr_rechunker import consolidate_chunks
-
+from zarr_rechunker.zarr_rechunker import consolidate_chunks, rechunking_plan
+import math
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
 @pytest.mark.parametrize("itemsize, max_mem, expected",
@@ -66,3 +66,41 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     assert new_chunks == expected
     chunk_mem = itemsize * new_chunks[0]* new_chunks[1] * new_chunks[2] * new_chunks[3]
     assert itemsize <= max_mem
+
+
+@pytest.mark.parametrize("shape, itemsize, source_chunks, target_chunks, max_mem, read_chunks_expected, intermediate_chunks_expected, write_chunks_expected",
+                         [((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)), # consolidate reads
+                          ((8,), 4, (1,), (2,), 16, (2,), (2,), (4,)), # consolidate writes
+                          ((8,), 4, (1,), (2,), 17, (2,), (2,), (4,)), # no difference
+                          ((16,), 4, (3,), (7,), 32, (6,), (1,), (7,)), # uneven chunks
+                         ])
+def test_rechunking_plan_1D(shape, source_chunks, target_chunks, itemsize, max_mem,
+                         read_chunks_expected, intermediate_chunks_expected,
+                         write_chunks_expected):
+    rc, ic, wc = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
+    assert rc == read_chunks_expected
+    assert ic == intermediate_chunks_expected
+    assert wc == write_chunks_expected
+    assert itemsize * math.prod(rc) <= max_mem
+    assert itemsize * math.prod(ic) <= max_mem
+    assert itemsize * math.prod(wc) <= max_mem
+
+
+@pytest.mark.parametrize("shape, source_chunks, target_chunks, itemsize",
+                         [((8, 8), (1, 8), (8, 1),  4)])
+@pytest.mark.parametrize("max_mem, read_chunks_expected, intermediate_chunks_expected, write_chunks_expected",
+                         [(32, (1, 8), (1, 1), (8, 1)), # no consolidation possible
+                          (64, (2, 8), (2, 1), (8, 2)), # consolidate 1->2 on read / write
+                          (256, (8, 8), (8, 1), (8, 8)), # full consolidation
+                          (512, (8, 8), (8, 1), (8, 8)), # more memory doesn't help
+                         ])
+def test_rechunking_plan_2d(shape, source_chunks, target_chunks, itemsize, max_mem,
+                         read_chunks_expected, intermediate_chunks_expected,
+                         write_chunks_expected):
+    rc, ic, wc = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
+    assert rc == read_chunks_expected
+    assert ic == intermediate_chunks_expected
+    assert wc == write_chunks_expected
+    assert itemsize * math.prod(rc) <= max_mem
+    assert itemsize * math.prod(ic) <= max_mem
+    assert itemsize * math.prod(wc) <= max_mem
