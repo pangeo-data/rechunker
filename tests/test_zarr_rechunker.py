@@ -29,6 +29,7 @@ def test_consolidate_chunks(shape, chunks, itemsize, max_mem, expected):
                           (32, (None, 4), (1, 4)), # with limts
                           (32, (8, 4), (2, 4)), # spill to next axis
                           (32, (8, None), (4, 2)),
+                          (128, (10, None), (8, 2)), # chunk_limit > shape truncated
                          ])
 def test_consolidate_chunks_w_limits(shape, chunks, itemsize, max_mem, chunk_limits, expected):
     new_chunks = consolidate_chunks(shape, chunks, itemsize, max_mem,
@@ -45,12 +46,12 @@ def test_consolidate_chunks_mem_error():
 
 @pytest.mark.parametrize("shape, chunks, itemsize, max_mem",
                          [((8, 8), (1, 2), 4,  8)])
-@pytest.mark.parametrize("chunk_limits", [(1, 1), (-2, 2), (9, 2)])
+@pytest.mark.parametrize("chunk_limits", [(1, 1), (-2, 2)])
 def test_consolidate_chunks_limit_error(shape, chunks, itemsize, max_mem, chunk_limits):
     with pytest.raises(ValueError, match=r'Invalid chunk_limits .*'):
         consolidate_chunks(shape, chunks, itemsize, max_mem,
                            chunk_limits=chunk_limits)
-                           
+
 
 @pytest.mark.parametrize("shape", [(1000, 50, 1800, 3600),])
 @pytest.mark.parametrize("chunks", [(1, 5, 1800, 3600),])

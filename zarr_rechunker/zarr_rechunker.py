@@ -51,6 +51,8 @@ def consolidate_chunks(shape: Sequence[int],
                 chunk_limit_per_axis[n_ax] = shape[n_ax]
             elif chunks[n_ax] <= cl <= shape[n_ax]:
                 chunk_limit_per_axis[n_ax] = cl
+            elif cl > shape[n_ax]:
+                chunk_limit_per_axis[n_ax] = shape[n_ax]
             else:
                 raise ValueError(f"Invalid chunk_limits {chunk_limits}.")
 
@@ -91,6 +93,12 @@ def intermediate_chunks(source_shape: Sequence[int],
     assert len(source_chunks) == ndim
     assert len(target_chunks) == ndim
 
+
+    read_chunk_limits = ndim * [None]
+    for n_ax, (sc, tc) in enumerate(zip(source_chunks, target_chunks)):
+        if tc > sc:
+             read_chunk_limits = 0
+
     # Greatest common demoninator chunks.
     # These are the smallest possible chunks which evenly fit into
     # both the source and target.
@@ -102,6 +110,7 @@ def intermediate_chunks(source_shape: Sequence[int],
     # than both source and target chunks.
     gcd_chunks = [math.gcd(c_source, c_target) for
                   c_source, c_target in zip(source_chunks, target_chunks)]
+
 
     # Now consolidate input and output chunks.
     # We read from many chunks at once and write to many chunks at once.
