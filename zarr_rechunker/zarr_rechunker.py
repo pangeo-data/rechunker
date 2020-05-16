@@ -14,8 +14,7 @@ def consolidate_chunks(shape: Sequence[int],
                        chunks: Sequence[int],
                        itemsize: int,
                        max_mem: int,
-                       axes: Optional[Sequence[int]]=None,
-                       chunk_limits: Optional[Sequence[int]]=None) -> Sequence[int]:
+                       chunk_limits: Optional[Sequence[Optional[int]]]=None) -> Sequence[int]:
     """
     Consolidate input chunks up to a certain memory limit. Consolidation starts on the
     highest axis and proceeds towards axis 0.
@@ -28,10 +27,9 @@ def consolidate_chunks(shape: Sequence[int],
         Original chunk shape (must be in form (5, 10, 20), no irregular chunks)
     max_mem : Int
         Maximum permissible chunk memory size, measured in units of itemsize
-    axes : Iterable, optional
-        List of axes on which to consolidate. Otherwise all.
     chunk_limits : Tuple, optional
-        Maximum size of each chunk along each axis.
+        Maximum size of each chunk along each axis. If None, don't consolidate
+        axis. If -1, no limit.
 
     Returns
     -------
@@ -39,13 +37,22 @@ def consolidate_chunks(shape: Sequence[int],
         The new chunks, size guaranteed to be <= mam_mem
     """
 
-    if axes is None:
-        axes = list(range(len(shape)))
+    ndim = len(shape)
     if chunk_limits is None:
         chunk_limits = shape
+    assert len(chunk_limits) == ndim
 
-    if any([chunk_limits[n_ax] < chunks[n_ax] for n_ax in axes]):
-        raise ValueError(f"chunk_limits {chunk_limits} are smaller than chunks {chunks}")
+    # now convert chunk_limits to a dictionary
+    # key: axis, value: limit
+    chunk_limit_per_axis = {}
+    for n_ax, cl in enumerate(chunk_limits):
+        if cl is not None:
+            if cl == -1:
+                chunk_limit_per_axis[n_ax] = shape[n_ax]
+            elif chunks[n_ax] <= cl <= shape[n_ax]:
+                chunk_limit_per_axis[n_ax] = cl
+            else:
+                raise ValueError(f"Invalid chunk_limits {chunk_limits}.")
 
     chunk_mem = itemsize * prod(chunks)
     if chunk_mem > max_mem:
@@ -53,10 +60,10 @@ def consolidate_chunks(shape: Sequence[int],
     headroom = max_mem // chunk_mem
 
     new_chunks = list(chunks)
-
-    for n_axis in sorted(axes)[::-1]:
-
-        c_new= min(chunks[n_axis] * headroom, shape[n_axis], chunk_limits[n_axis])
+    # only consolidate over these axes
+    axes = sorted(chunk_limit_per_axis.keys())[::-1]
+    for n_axis in axes:
+        c_new= min(chunks[n_axis] * headroom, shape[n_axis], chunk_limit_per_axis[n_axis])
         print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
         new_chunks[n_axis] = c_new
         chunk_mem = itemsize * prod(new_chunks)

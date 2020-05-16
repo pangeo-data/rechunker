@@ -22,17 +22,17 @@ def test_consolidate_chunks(shape, chunks, itemsize, max_mem, expected):
 
 
 @pytest.mark.parametrize("shape, chunks, itemsize", [((8, 8), (1, 2), 4)])
-@pytest.mark.parametrize("max_mem, axes, chunk_limits, expected",
-                         [(16, (1,), None, (1, 4)), # do last axis
-                          (16, (0,), None, (2, 2)), # do first axis
-                          (32, (1,), None, (1, 8)), # without limts
-                          (32, (1,), (8, 4), (1, 4)), # with limts
-                          (32, None, (8, 4), (2, 4)), # spill to next axis
-                          (32, (0,), (8, 4), (4, 2)),
+@pytest.mark.parametrize("max_mem, chunk_limits, expected",
+                         [(16, (None, -1), (1, 4)), # do last axis
+                          (16, (-1, None), (2, 2)), # do first axis
+                          (32, (None, -1), (1, 8)), # without limts
+                          (32, (None, 4), (1, 4)), # with limts
+                          (32, (8, 4), (2, 4)), # spill to next axis
+                          (32, (8, None), (4, 2)),
                          ])
-def test_consolidate_chunks_axes(shape, chunks, itemsize, max_mem, axes, chunk_limits, expected):
+def test_consolidate_chunks_w_limits(shape, chunks, itemsize, max_mem, chunk_limits, expected):
     new_chunks = consolidate_chunks(shape, chunks, itemsize, max_mem,
-                                    axes=axes, chunk_limits=chunk_limits)
+                                    chunk_limits=chunk_limits)
     assert new_chunks == expected
 
 
@@ -43,17 +43,14 @@ def test_consolidate_chunks_mem_error():
         consolidate_chunks(shape, chunks, itemsize, max_mem)
 
 
-def test_consolidate_chunks_limit_error():
-    shape, chunks, itemsize = (8, 8), (1, 2), 4
-    max_mem = 8
-    chunk_limits = (1, 1)
-    with pytest.raises(ValueError, match=r'chunk_limits .* are smaller than chunks .*'):
+@pytest.mark.parametrize("shape, chunks, itemsize, max_mem",
+                         [((8, 8), (1, 2), 4,  8)])
+@pytest.mark.parametrize("chunk_limits", [(1, 1), (-2, 2), (9, 2)])
+def test_consolidate_chunks_limit_error(shape, chunks, itemsize, max_mem, chunk_limits):
+    with pytest.raises(ValueError, match=r'Invalid chunk_limits .*'):
         consolidate_chunks(shape, chunks, itemsize, max_mem,
                            chunk_limits=chunk_limits)
-    # but don't raise an error if that axis is not included
-    consolidate_chunks(shape, chunks, itemsize, max_mem, axes=(0,),
-                       chunk_limits=chunk_limits)
-
+                           
 
 @pytest.mark.parametrize("shape", [(1000, 50, 1800, 3600),])
 @pytest.mark.parametrize("chunks", [(1, 5, 1800, 3600),])
