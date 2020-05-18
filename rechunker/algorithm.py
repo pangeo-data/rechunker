@@ -1,4 +1,4 @@
-"""Main module."""
+"""Core rechunking algorithm stuff."""
 
 
 import math
