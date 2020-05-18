@@ -9,7 +9,7 @@ from hypothesis import given, assume
 import hypothesis.strategies as st
 import hypothesis.extra.numpy as hynp
 
-from rechunker.rechunker import consolidate_chunks, rechunking_plan
+from rechunker.algorithm import consolidate_chunks, rechunking_plan
 
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
