@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Tests for `zarr_rechunker` package."""
+"""Tests for `rechunker` package."""
 
 from math import prod, gcd
 
@@ -9,7 +9,7 @@ from hypothesis import given, assume
 import hypothesis.strategies as st
 import hypothesis.extra.numpy as hynp
 
-from zarr_rechunker.zarr_rechunker import consolidate_chunks, rechunking_plan
+from rechunker.rechunker import consolidate_chunks, rechunking_plan
 
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
@@ -143,16 +143,22 @@ def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
         target_chunks.append(tc)
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
-    # scale max_mem geometrically with ndim
-    max_mem = draw(st.builds(lambda x: x**ndim, st.integers(min_value=100)))
-    assume(max_mem >= source_chunk_mem)
-    assume(max_mem >= target_chunk_mem)
-    return (tuple(shape), tuple(source_chunks), tuple(target_chunks), max_mem, itemsize)
+    min_mem = max(source_chunk_mem, target_chunk_mem)
+    return (tuple(shape), tuple(source_chunks), tuple(target_chunks), min_mem)
 
 @st.composite
 def shapes_chunks_maxmem_for_ndim(draw):
     ndim = draw(st.integers(min_value=1, max_value=5))
-    return draw(shapes_chunks_maxmem(ndim=ndim, itemsize=4))
+    itemsize = 4
+    max_len = 10_000
+    shape, source_chunks, target_chunks, min_mem = (
+        draw(shapes_chunks_maxmem(ndim=ndim, itemsize=4, max_len=10_000)))
+    # ensure max_mem > min_mem
+    #mem_scale_factor = draw(st.floats(min_value=1.0, max_value=1000.))
+    max_mem = min_mem * 10
+    # scale max_mem geometrically with ndim
+    #max_mem = draw(st.builds(lambda x: x**ndim, st.integers(min_value=64, max_value=itemsize*max_len)))
+    return shape, source_chunks, target_chunks, max_mem, itemsize
 
 
 @given(shapes_chunks_maxmem_for_ndim())
@@ -167,8 +173,8 @@ def test_hypothesis(inputs):
     # this should be guaranteed by the test
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
-    assert  source_chunk_mem < max_mem
-    assert  target_chunk_mem < max_mem
+    assert  source_chunk_mem <= max_mem
+    assert  target_chunk_mem <= max_mem
 
     ndim = len(shape)
     assert len(read_chunks) == ndim
