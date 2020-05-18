@@ -64,7 +64,7 @@ def consolidate_chunks(shape: Sequence[int],
     axes = sorted(chunk_limit_per_axis.keys())[::-1]
     for n_axis in axes:
         c_new= min(chunks[n_axis] * headroom, shape[n_axis], chunk_limit_per_axis[n_axis])
-        print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
+        #print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
         new_chunks[n_axis] = c_new
         chunk_mem = itemsize * prod(new_chunks)
         headroom = max_mem // chunk_mem
@@ -134,7 +134,7 @@ def rechunking_plan(shape: Sequence[int],
         read_chunks = tuple(source_chunks)
 
     # Intermediate chunks  are the smallest possible chunks which evenly fit
-    # into both read_chunks and target_chunks.
+    # into both read_chunks and target_chunks: greatest common denominator.
     # Example:
     #   read_chunks:            (20, 5)
     #   target_chunks:          (4, 25)

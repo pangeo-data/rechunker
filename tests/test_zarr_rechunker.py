@@ -2,9 +2,15 @@
 
 """Tests for `zarr_rechunker` package."""
 
+from math import prod, gcd
+
 import pytest
+from hypothesis import given, assume
+import hypothesis.strategies as st
+import hypothesis.extra.numpy as hynp
+
 from zarr_rechunker.zarr_rechunker import consolidate_chunks, rechunking_plan
-import math
+
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
 @pytest.mark.parametrize("itemsize, max_mem, expected",
@@ -68,6 +74,20 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     assert itemsize <= max_mem
 
 
+def _verify_plan_correctness(source_chunks, read_chunks, int_chunks,
+                             write_chunks, target_chunks, itemsize, max_mem):
+    assert itemsize * prod(read_chunks) <= max_mem
+    assert itemsize * prod(int_chunks) <= max_mem
+    assert itemsize * prod(write_chunks) <= max_mem
+    for sc, rc, ic, wc, tc in zip(source_chunks, read_chunks, int_chunks,
+                                  write_chunks, target_chunks):
+        assert rc >= sc
+        assert wc >= tc
+        assert ic == gcd(rc, tc)
+        assert ic <= rc
+        assert ic <= wc
+
+
 @pytest.mark.parametrize("shape, itemsize, source_chunks, target_chunks, max_mem, read_chunks_expected, intermediate_chunks_expected, write_chunks_expected",
                          [((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)), # consolidate reads
                           ((8,), 4, (1,), (2,), 16, (2,), (2,), (4,)), # consolidate writes
@@ -77,13 +97,13 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
 def test_rechunking_plan_1D(shape, source_chunks, target_chunks, itemsize, max_mem,
                          read_chunks_expected, intermediate_chunks_expected,
                          write_chunks_expected):
-    rc, ic, wc = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
-    assert rc == read_chunks_expected
-    assert ic == intermediate_chunks_expected
-    assert wc == write_chunks_expected
-    assert itemsize * math.prod(rc) <= max_mem
-    assert itemsize * math.prod(ic) <= max_mem
-    assert itemsize * math.prod(wc) <= max_mem
+    read_chunks, int_chunks, write_chunks = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
+    assert read_chunks == read_chunks_expected
+    assert int_chunks == intermediate_chunks_expected
+    assert write_chunks == write_chunks_expected
+    _verify_plan_correctness(source_chunks, read_chunks, int_chunks,
+                             write_chunks, target_chunks, itemsize, max_mem)
+
 
 
 @pytest.mark.parametrize("shape, source_chunks, target_chunks, itemsize",
@@ -97,10 +117,63 @@ def test_rechunking_plan_1D(shape, source_chunks, target_chunks, itemsize, max_m
 def test_rechunking_plan_2d(shape, source_chunks, target_chunks, itemsize, max_mem,
                          read_chunks_expected, intermediate_chunks_expected,
                          write_chunks_expected):
-    rc, ic, wc = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
-    assert rc == read_chunks_expected
-    assert ic == intermediate_chunks_expected
-    assert wc == write_chunks_expected
-    assert itemsize * math.prod(rc) <= max_mem
-    assert itemsize * math.prod(ic) <= max_mem
-    assert itemsize * math.prod(wc) <= max_mem
+    read_chunks, int_chunks, write_chunks = rechunking_plan(shape, source_chunks, target_chunks, itemsize, max_mem)
+    assert read_chunks == read_chunks_expected
+    assert int_chunks == intermediate_chunks_expected
+    assert write_chunks == write_chunks_expected
+    _verify_plan_correctness(source_chunks, read_chunks, int_chunks,
+                             write_chunks, target_chunks, itemsize, max_mem)
+
+
+@st.composite
+def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
+    """Generate the data we need to test rechunking_plan.
+    """
+    shape = []
+    source_chunks = []
+    target_chunks = []
+    for n in range(ndim):
+        sh = draw(st.integers(min_value=1, max_value=max_len))
+        sc = draw(st.integers(min_value=1, max_value=max_len))
+        tc = draw(st.integers(min_value=1, max_value=max_len))
+        assume(sc <= sh)
+        assume(tc <= sh)
+        shape.append(sh)
+        source_chunks.append(sc)
+        target_chunks.append(tc)
+    source_chunk_mem = itemsize * prod(source_chunks)
+    target_chunk_mem = itemsize * prod(target_chunks)
+    # scale max_mem geometrically with ndim
+    max_mem = draw(st.builds(lambda x: x**ndim, st.integers(min_value=100)))
+    assume(max_mem >= source_chunk_mem)
+    assume(max_mem >= target_chunk_mem)
+    return (tuple(shape), tuple(source_chunks), tuple(target_chunks), max_mem, itemsize)
+
+@st.composite
+def shapes_chunks_maxmem_for_ndim(draw):
+    ndim = draw(st.integers(min_value=1, max_value=5))
+    return draw(shapes_chunks_maxmem(ndim=ndim, itemsize=4))
+
+
+@given(shapes_chunks_maxmem_for_ndim())
+def test_hypothesis(inputs):
+    shape, source_chunks, target_chunks, max_mem, itemsize = inputs
+    print(shape, source_chunks, target_chunks, max_mem)
+
+    args = shape, source_chunks, target_chunks, itemsize, max_mem
+    read_chunks, int_chunks, write_chunks = rechunking_plan(*args)
+    print(" plan: ", read_chunks, int_chunks, write_chunks)
+
+    # this should be guaranteed by the test
+    source_chunk_mem = itemsize * prod(source_chunks)
+    target_chunk_mem = itemsize * prod(target_chunks)
+    assert  source_chunk_mem < max_mem
+    assert  target_chunk_mem < max_mem
+
+    ndim = len(shape)
+    assert len(read_chunks) == ndim
+    assert len(int_chunks) == ndim
+    assert len(write_chunks) == ndim
+
+    _verify_plan_correctness(source_chunks, read_chunks, int_chunks,
+                             write_chunks, target_chunks, itemsize, max_mem)
