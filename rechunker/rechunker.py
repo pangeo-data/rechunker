@@ -8,11 +8,13 @@ from functools import reduce
 from typing import Callable, Iterable, Sequence, Union, Optional, List, Tuple
 
 
-def consolidate_chunks(shape: Sequence[int],
-                       chunks: Sequence[int],
-                       itemsize: int,
-                       max_mem: int,
-                       chunk_limits: Optional[Sequence[Optional[int]]]=None) -> Tuple[int, ...]:
+def consolidate_chunks(
+    shape: Sequence[int],
+    chunks: Sequence[int],
+    itemsize: int,
+    max_mem: int,
+    chunk_limits: Optional[Sequence[Optional[int]]] = None,
+) -> Tuple[int, ...]:
     """
     Consolidate input chunks up to a certain memory limit. Consolidation starts on the
     highest axis and proceeds towards axis 0.
@@ -63,8 +65,10 @@ def consolidate_chunks(shape: Sequence[int],
     # only consolidate over these axes
     axes = sorted(chunk_limit_per_axis.keys())[::-1]
     for n_axis in axes:
-        c_new= min(chunks[n_axis] * headroom, shape[n_axis], chunk_limit_per_axis[n_axis])
-        #print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
+        c_new = min(
+            chunks[n_axis] * headroom, shape[n_axis], chunk_limit_per_axis[n_axis]
+        )
+        # print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
         new_chunks[n_axis] = c_new
         chunk_mem = itemsize * prod(new_chunks)
         headroom = max_mem // chunk_mem
@@ -75,13 +79,15 @@ def consolidate_chunks(shape: Sequence[int],
     return tuple(new_chunks)
 
 
-def rechunking_plan(shape: Sequence[int],
-                    source_chunks: Sequence[int],
-                    target_chunks: Sequence[int],
-                    itemsize: int,
-                    max_mem: int,
-                    consolidate_reads: bool=True,
-                    consolidate_writes: bool=True) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
+def rechunking_plan(
+    shape: Sequence[int],
+    source_chunks: Sequence[int],
+    target_chunks: Sequence[int],
+    itemsize: int,
+    max_mem: int,
+    consolidate_reads: bool = True,
+    consolidate_writes: bool = True,
+) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
     """
     Parameters
     ----------
@@ -111,13 +117,17 @@ def rechunking_plan(shape: Sequence[int],
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
     if source_chunk_mem > max_mem:
-        raise ValueError(f"Source chunk memory ({source_chunk_mem}) exceeds max_mem ({max_mem})")
+        raise ValueError(
+            f"Source chunk memory ({source_chunk_mem}) exceeds max_mem ({max_mem})"
+        )
     if target_chunk_mem > max_mem:
-        raise ValueError(f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})")
+        raise ValueError(
+            f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})"
+        )
 
     if consolidate_reads:
         read_chunk_limits: List[Optional[int]]
-        read_chunk_limits = [] #
+        read_chunk_limits = []  #
         for n_ax, (sc, tc) in enumerate(zip(source_chunks, target_chunks)):
             read_chunk_lim: Optional[int]
             if tc > sc:
@@ -128,8 +138,9 @@ def rechunking_plan(shape: Sequence[int],
                 read_chunk_lim = None
             read_chunk_limits.append(read_chunk_lim)
 
-        read_chunks = consolidate_chunks(shape, source_chunks, itemsize,
-                                         max_mem, read_chunk_limits)
+        read_chunks = consolidate_chunks(
+            shape, source_chunks, itemsize, max_mem, read_chunk_limits
+        )
     else:
         read_chunks = tuple(source_chunks)
 
@@ -138,15 +149,16 @@ def rechunking_plan(shape: Sequence[int],
     # Example:
     #   read_chunks:            (20, 5)
     #   target_chunks:          (4, 25)
-    #.  intermediate_chunks:    (4, 5)
+    #   intermediate_chunks:    (4, 5)
     # We don't need to check their memory usage: they are guaranteed to be smaller
     # than both read and target chunks.
-    intermediate_chunks = [math.gcd(c_read, c_target) for
-                           c_read, c_target in zip(read_chunks, target_chunks)]
+    intermediate_chunks = [
+        math.gcd(c_read, c_target)
+        for c_read, c_target in zip(read_chunks, target_chunks)
+    ]
 
     if consolidate_writes:
-        write_chunks = consolidate_chunks(shape, target_chunks, itemsize,
-                                          max_mem)
+        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
     else:
         write_chunks = tuple(target_chunks)
 
