@@ -22,18 +22,31 @@ def rechunk_zarr2zarr_w_dask(source_array, target_chunks, max_mem,
     )
 
 
-    array_read = dsa.from_zarr(source_array, chunks=source_chunks,
-                               storage_options=source_storage_options)
-
-    store_futures = []
+    source_read = dsa.from_zarr(source_array, chunks=read_chunks,
+                                storage_options=source_storage_options)
 
     # create target
     target_array = zarr.empty(shape, chunks=target_chunks, dtype=dtype, store=target_store)
     target_array.attrs.update(source_array.attrs)
 
-
     if int_chunks == target_chunks:
-        store_future = dsa.store(array_read, target_array, lock=False, compute=False)
-        store_futures.append(store_future)
+        target_store_delayed = dsa.store(source_read, target_array, lock=False, compute=False)
+        print("One step rechunking plan")
+        return target_store_delayed
+
     else:
-        # do intermediate chunks
+        # do intermediate store
+        assert temp_store is not None
+        int_array = zarr.empty(shape, chunks=int_chunks, dtype=dtype, store=temp_store)
+        intermediate_store_delayed = dsa.store(source_read, int_array, lock=False, compute=False)
+
+        int_read = dsa.from_zarr(int_array, chunks=write_chunks, storage_options=temp_storage_options)
+        target_store_delayed = dsa.store(int_read, target_array, lock=False, compute=False)
+
+        # now do some hacking to chain these together into a single graph.
+        dsk = dask.utils.ensure_dict(intermediate_store_delayed.dask)
+        # find the final task
+
+
+        print("Two step rechunking")
+        return intermediate_store_delayed, target_store_delayed,
