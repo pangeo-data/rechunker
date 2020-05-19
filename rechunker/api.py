@@ -3,6 +3,9 @@
 import zarr
 import dask
 import dask.array as dsa
+from dask.optimization import fuse
+from dask.delayed import Delayed
+
 
 from rechunker.algorithm import rechunking_plan
 
@@ -44,9 +47,26 @@ def rechunk_zarr2zarr_w_dask(source_array, target_chunks, max_mem,
         target_store_delayed = dsa.store(int_read, target_array, lock=False, compute=False)
 
         # now do some hacking to chain these together into a single graph.
-        dsk = dask.utils.ensure_dict(intermediate_store_delayed.dask)
-        # find the final task
+        # get the two graphs as dicts
+        int_dsk = dask.utils.ensure_dict(intermediate_store_delayed.dask)
+        target_dsk = dask.utils.ensure_dict(target_store_delayed.dask)
 
+        # find the root store key representing the read
+        root_keys = []
+        for key in target_dsk:
+            if isinstance(key, str):
+                if key.startswith('from-zarr'):
+                    root_keys.append(key)
+        assert len(root_keys) == 1
+        root_key = root_keys[0]
 
-        print("Two step rechunking")
-        return intermediate_store_delayed, target_store_delayed,
+        # now rewrite the graph
+        target_dsk[root_key] = (lambda a, *b: a, target_dsk[root_key], *int_dsk[intermediate_store_delayed.key])
+        target_dsk.update(int_dsk)
+
+        # fuse
+        dsk_fused, deps = fuse(target_dsk)
+        delayed_fused = Delayed(target_store_delayed.key, dsk_fused)
+
+        print("Two step rechunking plan")
+        return delayed_fused
