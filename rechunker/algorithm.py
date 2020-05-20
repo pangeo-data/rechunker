@@ -1,8 +1,11 @@
 """Core rechunking algorithm stuff."""
 
-
 import math
-from math import prod
+try:
+    from math import prod
+except ImportError:
+    from numpy import prod
+    
 from functools import reduce
 
 from typing import Callable, Iterable, Sequence, Union, Optional, List, Tuple
@@ -144,8 +147,8 @@ def rechunking_plan(
     else:
         read_chunks = tuple(source_chunks)
 
-    # Intermediate chunks  are the smallest possible chunks which evenly fit
-    # into both read_chunks and target_chunks: greatest common denominator.
+    # Intermediate chunks  are the smallest possible chunks which fit
+    # into both read_chunks and target_chunks.
     # Example:
     #   read_chunks:            (20, 5)
     #   target_chunks:          (4, 25)
@@ -153,7 +156,7 @@ def rechunking_plan(
     # We don't need to check their memory usage: they are guaranteed to be smaller
     # than both read and target chunks.
     intermediate_chunks = [
-        math.gcd(c_read, c_target)
+        min(c_read, c_target)
         for c_read, c_target in zip(read_chunks, target_chunks)
     ]
 

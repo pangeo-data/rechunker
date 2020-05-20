@@ -2,7 +2,12 @@
 
 """Tests for `rechunker` package."""
 
-from math import prod, gcd
+from math import gcd
+try:
+    from math import prod
+except ImportError:
+    from numpy import prod
+    
 
 import pytest
 from hypothesis import given, assume
@@ -99,7 +104,7 @@ def _verify_plan_correctness(
     ):
         assert rc >= sc
         assert wc >= tc
-        assert ic == gcd(rc, tc)
+        assert ic == min(rc, tc)
         assert ic <= rc
         assert ic <= wc
 
@@ -110,7 +115,7 @@ def _verify_plan_correctness(
         ((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)),  # consolidate reads
         ((8,), 4, (1,), (2,), 16, (2,), (2,), (4,)),  # consolidate writes
         ((8,), 4, (1,), (2,), 17, (2,), (2,), (4,)),  # no difference
-        ((16,), 4, (3,), (7,), 32, (6,), (1,), (7,)),  # uneven chunks
+        ((16,), 4, (3,), (7,), 32, (6,), (6,), (7,)),  # uneven chunks
     ],
 )
 def test_rechunking_plan_1D(
@@ -210,6 +215,8 @@ def shapes_chunks_maxmem_for_ndim(draw):
         shapes_chunks_maxmem(ndim=ndim, itemsize=4, max_len=10_000)
     )
     max_mem = min_mem * 10
+    # needed to handle overflows
+    assume(max_mem > 1)
     return shape, source_chunks, target_chunks, max_mem, itemsize
 
 
