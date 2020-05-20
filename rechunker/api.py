@@ -6,8 +6,8 @@ import dask.array as dsa
 from dask.optimization import fuse
 from dask.delayed import Delayed
 
-
 from rechunker.algorithm import rechunking_plan
+
 
 def rechunk_zarr2zarr_w_dask(source_array, target_chunks, max_mem,
                              target_store, temp_store=None,
@@ -20,10 +20,12 @@ def rechunk_zarr2zarr_w_dask(source_array, target_chunks, max_mem,
     dtype = source_array.dtype
     itemsize = dtype.itemsize
 
+    if isinstance(max_mem, str):
+        max_mem = dask.utils.parse_bytes(max_mem)
+
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
     )
-
 
     source_read = dsa.from_zarr(source_array, chunks=read_chunks,
                                 storage_options=source_storage_options)

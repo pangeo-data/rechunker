@@ -13,8 +13,10 @@ import pytest
 from hypothesis import given, assume
 import hypothesis.strategies as st
 import hypothesis.extra.numpy as hynp
+import zarr
 
 from rechunker.algorithm import consolidate_chunks, rechunking_plan
+from rechunker.api import rechunk_zarr2zarr_w_dask
 
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
@@ -249,3 +251,22 @@ def test_rechunking_plan_hypothesis(inputs):
         itemsize,
         max_mem,
     )
+
+
+def test_rechunk_with_dask(tmpdir):
+    base_dir = str(tmpdir)
+    store_source = f'{base_dir}/source.zarr'
+    shape = (100, 100)
+    source_chunks = (10, 100)
+    dtype = 'f4'
+
+    a_source = zarr.ones(shape, chunks=source_chunks,
+                         dtype=dtype, store=store_source)
+
+    target_store = f'{base_dir}/target.zarr'
+    temp_store = f'{base_dir}/temp.zarr'
+    max_mem = "128 MB"
+    target_chunks = (100, 10)
+    r = rechunk_zarr2zarr_w_dask(a_source, target_chunks, max_mem,
+                                 target_store, temp_store=temp_store)
+    r.compute()
