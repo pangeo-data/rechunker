@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-
-from math import gcd
 try:
     from math import prod
 except ImportError:
     from numpy import prod
-    
+
 
 import pytest
 from hypothesis import given, assume
 import hypothesis.strategies as st
-import hypothesis.extra.numpy as hynp
 
 from rechunker.algorithm import consolidate_chunks, rechunking_plan
 
@@ -84,7 +81,7 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     new_chunks = consolidate_chunks(shape, chunks, itemsize, max_mem)
     assert new_chunks == expected
     chunk_mem = itemsize * new_chunks[0] * new_chunks[1] * new_chunks[2] * new_chunks[3]
-    assert itemsize <= max_mem
+    assert chunk_mem <= max_mem
 
 
 def _verify_plan_correctness(
@@ -110,7 +107,10 @@ def _verify_plan_correctness(
 
 
 @pytest.mark.parametrize(
-    "shape, itemsize, source_chunks, target_chunks, max_mem, read_chunks_expected, intermediate_chunks_expected, write_chunks_expected",
+    (
+        "shape, itemsize, source_chunks, target_chunks, max_mem, read_chunks_expected, "
+        "intermediate_chunks_expected, write_chunks_expected"
+    ),
     [
         ((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)),  # consolidate reads
         ((8,), 4, (1,), (2,), 16, (2,), (2,), (4,)),  # consolidate writes
@@ -210,7 +210,6 @@ def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
 def shapes_chunks_maxmem_for_ndim(draw):
     ndim = draw(st.integers(min_value=1, max_value=5))
     itemsize = 4
-    max_len = 10_000
     shape, source_chunks, target_chunks, min_mem = draw(
         shapes_chunks_maxmem(ndim=ndim, itemsize=4, max_len=10_000)
     )

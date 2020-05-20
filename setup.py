@@ -9,7 +9,10 @@ extras_require = {
     "complete": ["dask[array]", "zarr"],
 }
 extras_require["dev"] = extras_require["complete"] + [
-    "pytest", "hypothesis", "flake8", "black",
+    "pytest",
+    "hypothesis",
+    "flake8",
+    "black",
 ]
 
 setup(
