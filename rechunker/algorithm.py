@@ -1,14 +1,10 @@
 """Core rechunking algorithm stuff."""
+from typing import Sequence, Optional, List, Tuple
 
-import math
 try:
     from math import prod
 except ImportError:
     from numpy import prod
-    
-from functools import reduce
-
-from typing import Callable, Iterable, Sequence, Union, Optional, List, Tuple
 
 
 def consolidate_chunks(
@@ -156,8 +152,7 @@ def rechunking_plan(
     # We don't need to check their memory usage: they are guaranteed to be smaller
     # than both read and target chunks.
     intermediate_chunks = [
-        min(c_read, c_target)
-        for c_read, c_target in zip(read_chunks, target_chunks)
+        min(c_read, c_target) for c_read, c_target in zip(read_chunks, target_chunks)
     ]
 
     if consolidate_writes:
