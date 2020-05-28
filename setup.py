@@ -6,7 +6,7 @@ here = os.path.dirname(__file__)
 
 install_requires = []
 extras_require = {
-    "complete": ["dask[array]", "zarr", "pyyaml"],
+    "complete": ["dask[array]", "zarr", "pyyaml", "fsspec"],
 }
 extras_require["dev"] = extras_require["complete"] + [
     "pytest",
