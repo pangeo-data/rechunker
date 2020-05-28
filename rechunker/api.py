@@ -35,6 +35,11 @@ def rechunk_zarr2zarr_w_dask(
     )
 
     # create target
+    shape = tuple(int(x) for x in shape)  # ensure python ints for serialization
+    target_chunks = tuple(int(x) for x in target_chunks)
+    int_chunks = tuple(int(x) for x in int_chunks)
+    write_chunks = tuple(int(x) for x in write_chunks)
+
     target_array = zarr.empty(
         shape, chunks=target_chunks, dtype=dtype, store=target_store
     )
