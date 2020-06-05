@@ -104,6 +104,7 @@ def _verify_plan_correctness(
         assert ic == min(rc, wc)
         # todo: check for write overlaps
 
+
 @pytest.mark.parametrize(
     (
         "shape, itemsize, source_chunks, target_chunks, max_mem, read_chunks_expected, "
