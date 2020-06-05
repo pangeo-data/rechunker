@@ -101,10 +101,8 @@ def _verify_plan_correctness(
     ):
         assert rc >= sc
         assert wc >= tc
-        assert ic == min(rc, tc)
-        assert ic <= rc
-        assert ic <= wc
-
+        assert ic == min(rc, wc)
+        # todo: check for write overlaps
 
 @pytest.mark.parametrize(
     (

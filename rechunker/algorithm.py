@@ -150,22 +150,26 @@ def rechunking_plan(
         )
     else:
         read_chunks = tuple(source_chunks)
+        
+        
+    if consolidate_writes:
+        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
+    else:
+        write_chunks = tuple(target_chunks)
+
 
     # Intermediate chunks  are the smallest possible chunks which fit
-    # into both read_chunks and target_chunks.
+    # into both read_chunks and write_chunks.
     # Example:
     #   read_chunks:            (20, 5)
     #   target_chunks:          (4, 25)
     #   intermediate_chunks:    (4, 5)
     # We don't need to check their memory usage: they are guaranteed to be smaller
-    # than both read and target chunks.
+    # than both read and write chunks.
     intermediate_chunks = [
-        min(c_read, c_target) for c_read, c_target in zip(read_chunks, target_chunks)
+        min(c_read, c_target)
+        for c_read, c_target in zip(read_chunks, write_chunks)
     ]
 
-    if consolidate_writes:
-        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
-    else:
-        write_chunks = tuple(target_chunks)
 
     return read_chunks, tuple(intermediate_chunks), write_chunks

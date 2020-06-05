@@ -29,6 +29,8 @@ def rechunk_zarr2zarr_w_dask(
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
     )
+    
+    print(source_chunks, read_chunks, int_chunks, write_chunks, target_chunks)
 
     source_read = dsa.from_zarr(
         source_array, chunks=read_chunks, storage_options=source_storage_options
@@ -45,11 +47,8 @@ def rechunk_zarr2zarr_w_dask(
     )
     target_array.attrs.update(source_array.attrs)
 
-    if int_chunks == target_chunks:
-        target_store_delayed = dsa.store(
-            source_read, target_array, lock=False, compute=False
-        )
-        print("One step rechunking plan")
+    if read_chunks == write_chunks:
+        target_store_delayed = dsa.store(source_read, target_array, lock=False, compute=False)
         return target_store_delayed
 
     else:
