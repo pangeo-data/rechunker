@@ -101,9 +101,8 @@ def _verify_plan_correctness(
     ):
         assert rc >= sc
         assert wc >= tc
-        assert ic == min(rc, tc)
-        assert ic <= rc
-        assert ic <= wc
+        assert ic == min(rc, wc)
+        # todo: check for write overlaps
 
 
 @pytest.mark.parametrize(
@@ -152,9 +151,9 @@ def test_rechunking_plan_1D(
     "max_mem, read_chunks_expected, intermediate_chunks_expected, write_chunks_expected",
     [
         (32, (1, 8), (1, 1), (8, 1)),  # no consolidation possible
-        (64, (2, 8), (2, 1), (8, 2)),  # consolidate 1->2 on read / write
-        (256, (8, 8), (8, 1), (8, 8)),  # full consolidation
-        (512, (8, 8), (8, 1), (8, 8)),  # more memory doesn't help
+        (64, (2, 8), (2, 2), (8, 2)),  # consolidate 1->2 on read / write
+        (256, (8, 8), (8, 8), (8, 8)),  # full consolidation
+        (512, (8, 8), (8, 8), (8, 8)),  # more memory doesn't help
     ],
 )
 def test_rechunking_plan_2d(
