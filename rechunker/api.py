@@ -10,14 +10,6 @@ from dask.delayed import Delayed
 from rechunker.algorithm import rechunking_plan
 
 
-# desired usage
-# >>> rechunk(xr_da, {'time': -1})
-
-# def rechunk(source, target_chunks):
-#
-#     if isinstance(source, dsa.core.Array)
-
-
 def _shape_dict_to_tuple(dims, shape_dict):
     # convert a dict of shape
     shape = [shape_dict[dim] for dim in dims]
