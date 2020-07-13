@@ -101,9 +101,10 @@ def rechunking_plan(
         Target chunk shape (must be in form (5, 10, 20), no irregular chunks)
     max_mem : Int
         Maximum permissible chunk memory size, measured in units of itemsize
-    chunk_limits : Tuple, optional
-        Maximum size of each chunk along each axis. If None, don't consolidate
-        axis. If -1, no limit.
+    consolidate_reads: bool, optional
+        Whether to apply read chunk consolidation
+    consolidate_writes: bool, optional
+        Whether to apply write chunk consolidation
 
     Returns
     -------

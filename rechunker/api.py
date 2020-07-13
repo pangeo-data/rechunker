@@ -90,12 +90,100 @@ class Rechunked(Delayed):
         return template.format(**entries)
 
 
-def rechunk_zarr2zarr_w_dask(
+def _shape_dict_to_tuple(dims, shape_dict):
+    # convert a dict of shape
+    shape = [shape_dict[dim] for dim in dims]
+    return tuple(shape)
+
+
+def _get_dims_from_zarr_array(z_array):
+    # use Xarray convention
+    # http://xarray.pydata.org/en/stable/internals.html#zarr-encoding-specification
+    return z_array.attrs["_ARRAY_DIMENSIONS"]
+
+
+def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
+    # wrapper that maybe creates the array within a group
+    if name is not None:
+        assert isinstance(store_or_group, zarr.hierarchy.Group)
+        return store_or_group.empty(name, shape=shape, chunks=chunks, dtype=dtype)
+    else:
+        return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
+
+
+def rechunk(
+    source, target_chunks, max_mem, target_store, temp_store=None,
+):
+    """
+    Rechunk a Zarr Array or Group
+
+    Parameters
+    ----------
+    source : zarr.Array or zarr.Group
+    target_chunks : tuple or dict
+        The desired chunks of the array after rechunking.
+    max_mem : int
+        The amount of memory (in bytes) that workers are allowed to use
+    target_store : str, MutableMapping, or zarr.Store object
+        The location in which to store the final, rechunked result
+    temp_store : str, MutableMapping, or zarr.Store object, optional
+        Location of temporary store for intermediate data. Can be deleted
+        once rechunking is complete.
+    """
+
+    # these options are not tested yet; don't include in public API
+    kwargs = dict(
+        source_storage_options={}, temp_storage_options={}, target_storage_options={},
+    )
+
+    if isinstance(source, zarr.hierarchy.Group):
+        if not isinstance(target_chunks, dict):
+            raise ValueError(
+                "You must specificy ``target-chunks`` as a dict when rechunking a group."
+            )
+
+        stores_delayed = []
+
+        if temp_store:
+            temp_group = zarr.group(temp_store)
+        target_group = zarr.group(target_store)
+        target_group.attrs.update(source.attrs)
+
+        for array_name, array_target_chunks in target_chunks.items():
+            delayed = _rechunk_array(
+                source[array_name],
+                array_target_chunks,
+                max_mem,
+                target_group,
+                temp_store_or_group=temp_group,
+                name=array_name,
+                **kwargs,
+            )
+            stores_delayed.append(delayed)
+
+        return stores_delayed
+
+    elif isinstance(source, zarr.core.Array):
+        return _rechunk_array(
+            source,
+            target_chunks,
+            max_mem,
+            target_store,
+            temp_store_or_group=temp_store,
+            **kwargs,
+        )
+
+    else:
+        raise ValueError("Source must be a Zarr Array or Group.")
+
+
+def _rechunk_array(
     source_array,
     target_chunks,
     max_mem,
-    target_store,
-    temp_store=None,
+    target_store_or_group,
+    temp_store_or_group=None,
+    name=None,
     source_storage_options={},
     temp_storage_options={},
     target_storage_options={},
@@ -105,6 +193,20 @@ def rechunk_zarr2zarr_w_dask(
     source_chunks = source_array.chunks
     dtype = source_array.dtype
     itemsize = dtype.itemsize
+
+    if target_chunks is None:
+        # this is just a pass-through copy
+        target_chunks = source_chunks
+
+    if isinstance(target_chunks, dict):
+        array_dims = _get_dims_from_zarr_array(source_array)
+        try:
+            target_chunks = _shape_dict_to_tuple(array_dims, target_chunks)
+        except KeyError:
+            raise KeyError(
+                "You must explicitly specify each dimension size in target_chunks. "
+                f"Got array_dims {array_dims}, target_chunks {target_chunks}."
+            )
 
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
@@ -122,8 +224,8 @@ def rechunk_zarr2zarr_w_dask(
     int_chunks = tuple(int(x) for x in int_chunks)
     write_chunks = tuple(int(x) for x in write_chunks)
 
-    target_array = zarr.empty(
-        shape, chunks=target_chunks, dtype=dtype, store=target_store
+    target_array = _zarr_empty(
+        shape, target_store_or_group, target_chunks, dtype, name=name
     )
     target_array.attrs.update(source_array.attrs)
 
@@ -131,12 +233,21 @@ def rechunk_zarr2zarr_w_dask(
         target_store_delayed = dsa.store(
             source_read, target_array, lock=False, compute=False
         )
+        return Rechunked(
+            target_store_delayed.key,
+            target_store_delayed.dask,
+            source=source_array,
+            intermediate=None,
+            target=target_array,
+        )
         return target_store_delayed
 
     else:
         # do intermediate store
-        assert temp_store is not None
-        int_array = zarr.empty(shape, chunks=int_chunks, dtype=dtype, store=temp_store)
+        assert temp_store_or_group is not None
+        int_array = _zarr_empty(
+            shape, temp_store_or_group, int_chunks, dtype, name=name
+        )
         intermediate_store_delayed = dsa.store(
             source_read, int_array, lock=False, compute=False
         )
