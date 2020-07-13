@@ -2,6 +2,7 @@ import pytest
 
 import zarr
 import dask.array as dsa
+import dask
 
 from rechunker import api
 
@@ -92,3 +93,8 @@ def test_rechunk_group(tmp_path):
     assert "a" in target_group
     assert "b" in target_group
     assert dict(group.attrs) == dict(target_group.attrs)
+
+    dask.compute(delayed)
+    for aname in target_chunks:
+        a_tar = dsa.from_zarr(target_group[aname])
+        assert dsa.equal(a_tar, 1).all().compute()
