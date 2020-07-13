@@ -19,7 +19,7 @@ def _shape_dict_to_tuple(dims, shape_dict):
 def _get_dims_from_zarr_array(z_array):
     # use Xarray convention
     # http://xarray.pydata.org/en/stable/internals.html#zarr-encoding-specification
-    return z_array.attrs['_ARRAY_DIMENSIONS']
+    return z_array.attrs["_ARRAY_DIMENSIONS"]
 
 
 def rechunk(
@@ -65,8 +65,10 @@ def _rechunk_zarr2zarr_w_dask(
         try:
             target_chunks = _shape_dict_to_tuple(array_dims, target_chunks)
         except KeyError:
-            raise KeyError("You must explicitly specify each dimension size in target_chunks. "
-                           f"Got array_dims {array_dims}, target_chunks {target_chunks}.")
+            raise KeyError(
+                "You must explicitly specify each dimension size in target_chunks. "
+                f"Got array_dims {array_dims}, target_chunks {target_chunks}."
+            )
 
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
