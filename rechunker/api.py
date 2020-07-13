@@ -174,6 +174,11 @@ def rechunk(
             )
             stores_delayed.append(delayed)
 
+        # This next block makes a task that
+        # 1. Returns the target Group (see dsk[name] = ...)...
+        # 2. which depends on each of the component arrays
+        # 3. but doesn't require transmitting large dependencies (depend on barrier_name,
+        #    rather than on part.key directly) to compute the result
         always_new_token = uuid.uuid1().hex
         barrier_name = "barrier-" + always_new_token
         dsk2 = {
