@@ -1,4 +1,6 @@
 """User-facing functions."""
+import html
+import textwrap
 
 import zarr
 import dask
@@ -8,6 +10,84 @@ from dask.delayed import Delayed
 
 
 from rechunker.algorithm import rechunking_plan
+
+
+class Rechunked(Delayed):
+    __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
+
+    def __init__(self, key, dsk, length=None, *, source, intermediate, target):
+        self._source = source
+        self._intermediate = intermediate
+        self._target = target
+        super().__init__(key, dsk, length=length)
+
+    def execute(self, **kwargs):
+        """
+        Execute the rechunking.
+
+        Parameters
+        ----------
+        scheduler : string, optional
+            Which scheduler to use like "threads", "synchronous" or "processes".
+            If not provided, the default is to check the global settings first,
+            and then fall back to the collection defaults.
+        optimize_graph : bool, optional
+            If True [default], the graph is optimized before computation.
+            Otherwise the graph is run as is. This can be useful for debugging.
+        kwargs
+            Extra keywords to forward to the scheduler function.
+
+        Returns
+        -------
+        The same type of the ``source_array`` originally provided to
+        :func:`rechunker.rechunk`.
+        """
+        self.compute(**kwargs)
+        return self._target
+
+    def __repr__(self):
+        return textwrap.dedent(
+            f"""\
+            <Rechunked>
+            * Source      : {repr(self._source)}
+            * Intermediate: {repr(self._intermediate)}
+            * Target      : {repr(self._target)}
+            """
+        )
+
+    def _repr_html_(self):
+        entries = {}
+        for kind, obj in [
+            ("source", self._source),
+            ("intermediate", self._intermediate),
+            ("target", self._target),
+        ]:
+            try:
+                body = obj._repr_html_()
+            except AttributeError:
+                body = f"<p><code>{html.escape(repr(self._target))}</code></p>"
+            entries[f"{kind}_html"] = body
+
+        template = textwrap.dedent(
+            """<h2>Rechunked</h2>\
+
+        <details>
+          <summary><b>Source</b></summary>
+          {source_html}
+        </details>
+
+        <details>
+          <summary><b>Intermediate</b></summary>
+          {intermediate_html}
+        </details>
+
+        <details>
+          <summary><b>Target</b></summary>
+          {target_html}
+        </details>
+        """
+        )
+        return template.format(**entries)
 
 
 def rechunk_zarr2zarr_w_dask(
@@ -65,7 +145,7 @@ def rechunk_zarr2zarr_w_dask(
             int_array, chunks=write_chunks, storage_options=temp_storage_options
         )
         target_store_delayed = dsa.store(
-            int_read, target_array, lock=False, compute=False
+            int_read, target_array, lock=False, compute=False,
         )
 
         # now do some hacking to chain these together into a single graph.
@@ -92,7 +172,12 @@ def rechunk_zarr2zarr_w_dask(
 
         # fuse
         dsk_fused, deps = fuse(target_dsk)
-        delayed_fused = Delayed(target_store_delayed.key, dsk_fused)
+        delayed_fused = Rechunked(
+            target_store_delayed.key,
+            dsk_fused,
+            source=source_array,
+            intermediate=int_read,
+            target=target_array,
+        )
 
-        print("Two step rechunking plan")
         return delayed_fused

@@ -28,7 +28,22 @@ def rechunk_delayed(tmp_path):
 
 
 def test_compute(rechunk_delayed):
-    delayed, target_store = rechunk_delayed
-    delayed.compute()
-    a_tar = dsa.from_zarr(target_store)
+    rechunked, target_store = rechunk_delayed
+    result = rechunked.execute()
+    assert isinstance(result, zarr.Array)
+    a_tar = dsa.from_zarr(result)
     assert dsa.equal(a_tar, 1).all().compute()
+
+
+def test_repr(rechunk_delayed):
+    rechunked, target_store = rechunk_delayed
+    assert isinstance(rechunked, api.Rechunked)
+    repr_str = repr(rechunked)
+
+    assert repr_str.startswith("<Rechunked>")
+    assert all(thing in repr_str for thing in ["Source", "Intermediate", "Target"])
+
+
+def test_rerp_html(rechunk_delayed):
+    rechunked, target_store = rechunk_delayed
+    rechunked._repr_html_()  # no exceptions
