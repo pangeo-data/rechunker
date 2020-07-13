@@ -272,7 +272,6 @@ def _rechunk_array(
             intermediate=None,
             target=target_array,
         )
-        return target_store_delayed
 
     else:
         # do intermediate store
