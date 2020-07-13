@@ -18,7 +18,7 @@ def target_chunks(request):
 @pytest.mark.parametrize("shape", [(8000, 8000)])
 @pytest.mark.parametrize("source_chunks", [(200, 8000)])
 @pytest.mark.parametrize("dtype", ["f4"])
-@pytest.mark.parametrize("max_mem", [25600000])
+@pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
     "dims,target_chunks",
     [
