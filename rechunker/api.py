@@ -10,7 +10,49 @@ from dask.delayed import Delayed
 from rechunker.algorithm import rechunking_plan
 
 
-def rechunk_zarr2zarr_w_dask(
+# desired usage
+# >>> rechunk(xr_da, {'time': -1})
+
+# def rechunk(source, target_chunks):
+#
+#     if isinstance(source, dsa.core.Array)
+
+
+def _shape_dict_to_tuple(dims, shape_dict):
+    # convert a dict of shape
+    shape = [shape_dict[dim] for dim in dims]
+    return tuple(shape)
+
+
+def _get_dims_from_zarr_array(z_array):
+    # use Xarray convention
+    # http://xarray.pydata.org/en/stable/internals.html#zarr-encoding-specification
+    return z_array.attrs['_ARRAY_DIMENSIONS']
+
+
+def rechunk(
+    source_array,
+    target_chunks,
+    max_mem,
+    target_store,
+    temp_store=None,
+    source_storage_options={},
+    temp_storage_options={},
+    target_storage_options={},
+):
+    return _rechunk_zarr2zarr_w_dask(
+        source_array,
+        target_chunks,
+        max_mem,
+        target_store,
+        temp_store=temp_store,
+        source_storage_options=source_storage_options,
+        temp_storage_options=temp_storage_options,
+        target_storage_options=target_storage_options,
+    )
+
+
+def _rechunk_zarr2zarr_w_dask(
     source_array,
     target_chunks,
     max_mem,
@@ -25,6 +67,14 @@ def rechunk_zarr2zarr_w_dask(
     source_chunks = source_array.chunks
     dtype = source_array.dtype
     itemsize = dtype.itemsize
+
+    if isinstance(target_chunks, dict):
+        array_dims = _get_dims_from_zarr_array(source_array)
+        try:
+            target_chunks = _shape_dict_to_tuple(array_dims, target_chunks)
+        except KeyError:
+            raise KeyError("You must explicitly specify each dimension size in target_chunks. "
+                           f"Got array_dims {array_dims}, target_chunks {target_chunks}.")
 
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
