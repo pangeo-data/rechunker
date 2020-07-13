@@ -32,11 +32,7 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
 
 
 def rechunk(
-    source,
-    target_chunks,
-    max_mem,
-    target_store,
-    temp_store=None,
+    source, target_chunks, max_mem, target_store, temp_store=None,
 ):
     """
     Rechunk a Zarr Array or Group
@@ -57,15 +53,14 @@ def rechunk(
 
     # these options are not tested yet; don't include in public API
     kwargs = dict(
-        source_storage_options={},
-        temp_storage_options={},
-        target_storage_options={},
+        source_storage_options={}, temp_storage_options={}, target_storage_options={},
     )
-
 
     if isinstance(source, zarr.hierarchy.Group):
         if not isinstance(target_chunks, dict):
-            raise ValueError("You must specificy ``target-chunks`` as a dict when rechunking a group.")
+            raise ValueError(
+                "You must specificy ``target-chunks`` as a dict when rechunking a group."
+            )
 
         stores_delayed = []
 
@@ -82,7 +77,7 @@ def rechunk(
                 target_group,
                 temp_store_or_group=temp_group,
                 name=array_name,
-                **kwargs
+                **kwargs,
             )
             stores_delayed.append(delayed)
 
@@ -95,11 +90,11 @@ def rechunk(
             max_mem,
             target_store,
             temp_store_or_group=temp_store,
-            **kwargs
+            **kwargs,
         )
 
     else:
-        raise ValueError('Source must be a Zarr Array or Group.')
+        raise ValueError("Source must be a Zarr Array or Group.")
 
 
 def _rechunk_array(
@@ -149,7 +144,9 @@ def _rechunk_array(
     int_chunks = tuple(int(x) for x in int_chunks)
     write_chunks = tuple(int(x) for x in write_chunks)
 
-    target_array = _zarr_empty(shape, target_store_or_group, target_chunks, dtype, name=name)
+    target_array = _zarr_empty(
+        shape, target_store_or_group, target_chunks, dtype, name=name
+    )
     target_array.attrs.update(source_array.attrs)
 
     if read_chunks == write_chunks:
@@ -161,7 +158,9 @@ def _rechunk_array(
     else:
         # do intermediate store
         assert temp_store_or_group is not None
-        int_array = _zarr_empty(shape, temp_store_or_group, int_chunks, dtype, name=name)
+        int_array = _zarr_empty(
+            shape, temp_store_or_group, int_chunks, dtype, name=name
+        )
         intermediate_store_delayed = dsa.store(
             source_read, int_array, lock=False, compute=False
         )

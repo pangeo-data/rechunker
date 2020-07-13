@@ -71,24 +71,24 @@ def test_rechunk_array(
 def test_rechunk_group(tmp_path):
     store_source = str(tmp_path / "source.zarr")
     group = zarr.group(store_source)
-    group.attrs['foo'] = 'bar'
+    group.attrs["foo"] = "bar"
     # 800 byte chunks
-    a = group.ones('a', shape=(5, 10, 20), chunks=(1, 10, 20), dtype='f4')
-    a.attrs['foo'] = 'bar'
-    b = group.ones('b', shape=(20,), chunks=(10,), dtype='f4')
-    b.attrs['foo'] = 'bar'
+    a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
+    a.attrs["foo"] = "bar"
+    b = group.ones("b", shape=(20,), chunks=(10,), dtype="f4")
+    b.attrs["foo"] = "bar"
 
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    max_mem = 1600 # should force a two-step plan for a
-    target_chunks = {'a': (5, 10, 4), 'b': (20,)}
+    max_mem = 1600  # should force a two-step plan for a
+    target_chunks = {"a": (5, 10, 4), "b": (20,)}
 
     delayed = api.rechunk(
         group, target_chunks, max_mem, target_store, temp_store=temp_store
     )
 
     target_group = zarr.open(target_store)
-    assert 'a' in target_group
-    assert 'b' in target_group
+    assert "a" in target_group
+    assert "b" in target_group
     assert dict(group.attrs) == dict(target_group.attrs)
