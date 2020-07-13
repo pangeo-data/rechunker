@@ -1,6 +1,7 @@
 """User-facing functions."""
 import html
 import textwrap
+import uuid
 
 import zarr
 import dask
@@ -111,6 +112,18 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
         return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
 
 
+def _reduce(*args):
+    return None
+
+
+def _barrier(*args):
+    return None
+
+
+def _result(result, *args):
+    return result
+
+
 def rechunk(
     source, target_chunks, max_mem, target_store, temp_store=None,
 ):
@@ -161,7 +174,23 @@ def rechunk(
             )
             stores_delayed.append(delayed)
 
-        return stores_delayed
+        always_new_token = uuid.uuid1().hex
+        barrier_name = "barrier-" + always_new_token
+        dsk2 = {
+            (barrier_name, i): (_barrier, part.key)
+            for i, part in enumerate(stores_delayed)
+        }
+
+        name = "rechunked-" + dask.base.tokenize([x.name for x in stores_delayed])
+        dsk = dask.base.merge(*[x.dask for x in stores_delayed], dsk2)
+        dsk[name] = (_result, target_group,) + tuple(
+            (barrier_name, i) for i, _ in enumerate(stores_delayed)
+        )
+        rechunked = Rechunked(
+            name, dsk, source=source, intermediate=temp_group, target=target_group,
+        )
+
+        return rechunked
 
     elif isinstance(source, zarr.core.Array):
         return _rechunk_array(
@@ -211,8 +240,6 @@ def _rechunk_array(
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
     )
-
-    print(source_chunks, read_chunks, int_chunks, write_chunks, target_chunks)
 
     source_read = dsa.from_zarr(
         source_array, chunks=read_chunks, storage_options=source_storage_options
