@@ -277,6 +277,8 @@ def _rechunk_array(
                 f"Got array_dims {array_dims}, target_chunks {target_chunks}."
             )
 
+    max_mem = dask.utils.parse_bytes(max_mem)
+
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
     )
