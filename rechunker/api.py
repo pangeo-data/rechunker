@@ -14,6 +14,27 @@ from rechunker.algorithm import rechunking_plan
 
 
 class Rechunked(Delayed):
+    """
+    A delayed rechunked result.
+
+    This represents the rechunking plan, and when executed will perform
+    the rechunking and return the rechunked array.
+
+    Examples
+    --------
+    >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
+    >>> intermediate = "intermediate.zarr"
+    >>> target = "target.zarr"
+    >>> rechunked = rechunk(source, target_chunks=(4, 1), target_store=target,
+    ...                     max_mem=256000,
+    ...                     temp_store=intermediate)
+    >>> rechunked
+    <Rechunked>
+    * Source      : <zarr.core.Array (4, 4) float64>
+    * Intermediate: dask.array<from-zarr, ... >
+    * Target      : <zarr.core.Array (4, 4) float64>
+    """
+
     __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
 
     def __init__(self, key, dsk, length=None, *, source, intermediate, target):
@@ -47,14 +68,18 @@ class Rechunked(Delayed):
         return self._target
 
     def __repr__(self):
+        if self._intermediate is not None:
+            intermediate = f"\n* Intermediate: {repr(self._intermediate)}"
+        else:
+            intermediate = ""
+
         return textwrap.dedent(
             f"""\
             <Rechunked>
-            * Source      : {repr(self._source)}
-            * Intermediate: {repr(self._intermediate)}
+            * Source      : {repr(self._source)}{{}}
             * Target      : {repr(self._target)}
             """
-        )
+        ).format(intermediate)
 
     def _repr_html_(self):
         entries = {}
@@ -74,20 +99,28 @@ class Rechunked(Delayed):
 
         <details>
           <summary><b>Source</b></summary>
-          {source_html}
+          {{source_html}}
         </details>
-
-        <details>
-          <summary><b>Intermediate</b></summary>
-          {intermediate_html}
-        </details>
-
+        {}
         <details>
           <summary><b>Target</b></summary>
-          {target_html}
+          {{target_html}}
         </details>
         """
         )
+
+        if self._intermediate is not None:
+            intermediate = textwrap.dedent(
+                """\
+                <details>
+                <summary><b>Intermediate</b></summary>
+                {intermediate_html}
+                </details>
+            """
+            )
+        else:
+            intermediate = ""
+        template = template.format(intermediate)
         return template.format(**entries)
 
 

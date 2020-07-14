@@ -161,3 +161,11 @@ def test_repr(rechunked):
 
 def test_rerp_html(rechunked):
     rechunked._repr_html_()  # no exceptions
+
+
+def test_no_intermediate():
+    a = zarr.ones((4, 4), chunks=(2, 2))
+    b = zarr.ones((4, 4), chunks=(4, 1))
+    rechunked = api.Rechunked("a-b", {}, source=a, intermediate=None, target=b)
+    assert "Intermediate" not in repr(rechunked)
+    rechunked._repr_html_()
