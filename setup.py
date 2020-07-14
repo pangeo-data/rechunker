@@ -8,8 +8,17 @@ install_requires = [
     "dask[array]",
     "zarr",
 ]
+doc_requires = [
+    "sphinx",
+    "sphinxcontrib-srclinks",
+    "sphinx-pangeo-theme",
+    "numpydoc",
+    "IPython",
+]
+
 extras_require = {
     "complete": ["dask[array]", "zarr", "pyyaml", "fsspec"],
+    "docs": doc_requires,
 }
 extras_require["dev"] = extras_require["complete"] + [
     "pytest",
