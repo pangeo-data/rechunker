@@ -18,7 +18,7 @@ print("sys.path:", sys.path)
 
 
 import rechunker
-import sphinx_pangeo_theme # noqa: F401
+import sphinx_pangeo_theme  # noqa: F401
 
 
 # -- Project information -----------------------------------------------------
