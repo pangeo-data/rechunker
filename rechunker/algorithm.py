@@ -157,7 +157,6 @@ def rechunking_plan(
     else:
         read_chunks = tuple(source_chunks)
 
-
     # Intermediate chunks  are the smallest possible chunks which fit
     # into both read_chunks and write_chunks.
     # Example:
