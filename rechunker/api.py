@@ -194,6 +194,8 @@ def rechunk(
 
         if temp_store:
             temp_group = zarr.group(temp_store)
+        else:
+            temp_group = None
         target_group = zarr.group(target_store)
         target_group.attrs.update(source.attrs)
 
