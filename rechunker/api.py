@@ -20,6 +20,9 @@ class Rechunked(Delayed):
     This represents the rechunking plan, and when executed will perform
     the rechunking and return the rechunked array.
 
+    Methods
+    -------
+
     Examples
     --------
     >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")

@@ -19,13 +19,15 @@ Dask_.
 Usage
 -----
 
-The main function exposed by rechunker is ``rechunk``.
+The main function exposed by rechunker is :func:`rechunker.rechunk`.
 
-.. autofunction:: rechunker.rechunk
+.. currentmodule:: rechunker
 
-``rechunk`` returns a ``Rechunked`` object.
+.. autofunction:: rechunk
 
-.. autoclass:: rechunker.Rechunked
+``rechunk`` returns a :class:`Rechunked` object.
+
+.. autoclass:: Rechunked
 
 
 Examples
