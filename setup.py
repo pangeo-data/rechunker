@@ -3,6 +3,9 @@ import versioneer
 from setuptools import find_packages, setup
 
 here = os.path.dirname(__file__)
+with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
+
 
 install_requires = [
     "dask[array]",
@@ -30,7 +33,6 @@ extras_require["dev"] = extras_require["complete"] + [
 setup(
     name="rechunker",
     description="A library for rechunking arrays.",
-    long_description="A library for rechunking arrays.",
     url="https://github.com/pangeo-data/rechunker",
     author="Pangeo developers",
     author_email="ryan.abernathey@gmail.com",
@@ -51,4 +53,6 @@ setup(
     python_requires=">=3.6",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
+    long_description=long_description,
+    long_description_content_type="text/markdown",
 )
