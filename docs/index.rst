@@ -49,3 +49,8 @@ The algorithm used by rechunker tries to satisfy several constraints simultaneou
 - *Be embarassingly parallel.* The task graph should be as simple as possible,
   to make it easy to execute using different task scheduling frameworks. This also
   means avoiding write locks, which are complex to manage.
+
+
+.. _Zarr: https://zarr.readthedocs.io/en/stable/
+.. _TileDB: https://tiledb.com/
+.. _Dask: https://dask.org/
