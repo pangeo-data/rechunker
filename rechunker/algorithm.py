@@ -133,14 +133,19 @@ def rechunking_plan(
             f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})"
         )
 
+    if consolidate_writes:
+        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
+    else:
+        write_chunks = tuple(target_chunks)
+
     if consolidate_reads:
         read_chunk_limits: List[Optional[int]]
         read_chunk_limits = []  #
-        for n_ax, (sc, tc) in enumerate(zip(source_chunks, target_chunks)):
+        for n_ax, (sc, wc) in enumerate(zip(source_chunks, write_chunks)):
             read_chunk_lim: Optional[int]
-            if tc > sc:
+            if wc > sc:
                 # consolidate reads over this axis, up to the target chunk size
-                read_chunk_lim = tc
+                read_chunk_lim = wc
             else:
                 # don't consolidate reads over this axis
                 read_chunk_lim = None
@@ -152,10 +157,6 @@ def rechunking_plan(
     else:
         read_chunks = tuple(source_chunks)
 
-    if consolidate_writes:
-        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
-    else:
-        write_chunks = tuple(target_chunks)
 
     # Intermediate chunks  are the smallest possible chunks which fit
     # into both read_chunks and write_chunks.
