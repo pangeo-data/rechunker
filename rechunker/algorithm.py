@@ -144,7 +144,7 @@ def rechunking_plan(
         for n_ax, (sc, wc) in enumerate(zip(source_chunks, write_chunks)):
             read_chunk_lim: Optional[int]
             if wc > sc:
-                # consolidate reads over this axis, up to the target chunk size
+                # consolidate reads over this axis, up to the write chunk size
                 read_chunk_lim = wc
             else:
                 # don't consolidate reads over this axis
