@@ -111,8 +111,10 @@ def _verify_plan_correctness(
         "intermediate_chunks_expected, write_chunks_expected"
     ),
     [
-        ((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)),  # consolidate reads
-        ((8,), 4, (1,), (2,), 16, (4,), (4,), (4,)),  # consolidate 
+        ((8,), 4, (1,), (1,), 4, (1,), (1,), (1,)),  # pass chunks through unchanged
+        ((8,), 4, (1,), (1,), 8, (2,), (2,), (2,)),  # consolidate reading and writing
+        ((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)),  
+        ((8,), 4, (1,), (2,), 16, (4,), (4,), (4,)),  # consolidate
         ((8,), 4, (1,), (2,), 17, (4,), (4,), (4,)),  # no difference
         ((16,), 4, (3,), (7,), 32, (6,), (6,), (7,)),  # uneven chunks
     ],
