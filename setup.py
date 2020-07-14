@@ -4,7 +4,10 @@ from setuptools import find_packages, setup
 
 here = os.path.dirname(__file__)
 
-install_requires = []
+install_requires = [
+    "dask[array]",
+    "zarr",
+]
 extras_require = {
     "complete": ["dask[array]", "zarr", "pyyaml", "fsspec"],
 }

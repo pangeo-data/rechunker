@@ -1,2 +1,5 @@
-- sphinx
-- sphinxcontrib-srclinks
+sphinx
+sphinxcontrib-srclinks
+sphinx-pangeo-theme
+numpydoc
+IPython
