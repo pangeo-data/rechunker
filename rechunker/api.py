@@ -1,4 +1,7 @@
 """User-facing functions."""
+import html
+import textwrap
+import uuid
 
 import zarr
 import dask
@@ -8,6 +11,119 @@ from dask.delayed import Delayed
 
 
 from rechunker.algorithm import rechunking_plan
+
+
+class Rechunked(Delayed):
+    """
+    A delayed rechunked result.
+
+    This represents the rechunking plan, and when executed will perform
+    the rechunking and return the rechunked array.
+
+    Examples
+    --------
+    >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
+    >>> intermediate = "intermediate.zarr"
+    >>> target = "target.zarr"
+    >>> rechunked = rechunk(source, target_chunks=(4, 1), target_store=target,
+    ...                     max_mem=256000,
+    ...                     temp_store=intermediate)
+    >>> rechunked
+    <Rechunked>
+    * Source      : <zarr.core.Array (4, 4) float64>
+    * Intermediate: dask.array<from-zarr, ... >
+    * Target      : <zarr.core.Array (4, 4) float64>
+    >>> rechunked.execute()
+    <zarr.core.Array (4, 4) float64>
+    """
+
+    __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
+
+    def __init__(self, key, dsk, length=None, *, source, intermediate, target):
+        self._source = source
+        self._intermediate = intermediate
+        self._target = target
+        super().__init__(key, dsk, length=length)
+
+    def execute(self, **kwargs):
+        """
+        Execute the rechunking.
+
+        Parameters
+        ----------
+        scheduler : string, optional
+            Which Dask scheduler to use like "threads", "synchronous" or "processes".
+            If not provided, the default is to check the global settings first,
+            and then fall back to the collection defaults.
+        optimize_graph : bool, optional
+            If True [default], the graph is optimized before computation.
+            Otherwise the graph is run as is. This can be useful for debugging.
+        kwargs
+            Extra keywords to forward to the scheduler function.
+
+        Returns
+        -------
+        The same type of the ``source_array`` originally provided to
+        :func:`rechunker.rechunk`.
+        """
+        self.compute(**kwargs)
+        return self._target
+
+    def __repr__(self):
+        if self._intermediate is not None:
+            intermediate = f"\n* Intermediate: {repr(self._intermediate)}"
+        else:
+            intermediate = ""
+
+        return textwrap.dedent(
+            f"""\
+            <Rechunked>
+            * Source      : {repr(self._source)}{{}}
+            * Target      : {repr(self._target)}
+            """
+        ).format(intermediate)
+
+    def _repr_html_(self):
+        entries = {}
+        for kind, obj in [
+            ("source", self._source),
+            ("intermediate", self._intermediate),
+            ("target", self._target),
+        ]:
+            try:
+                body = obj._repr_html_()
+            except AttributeError:
+                body = f"<p><code>{html.escape(repr(self._target))}</code></p>"
+            entries[f"{kind}_html"] = body
+
+        template = textwrap.dedent(
+            """<h2>Rechunked</h2>\
+
+        <details>
+          <summary><b>Source</b></summary>
+          {{source_html}}
+        </details>
+        {}
+        <details>
+          <summary><b>Target</b></summary>
+          {{target_html}}
+        </details>
+        """
+        )
+
+        if self._intermediate is not None:
+            intermediate = textwrap.dedent(
+                """\
+                <details>
+                <summary><b>Intermediate</b></summary>
+                {intermediate_html}
+                </details>
+            """
+            )
+        else:
+            intermediate = ""
+        template = template.format(intermediate)
+        return template.format(**entries)
 
 
 def _shape_dict_to_tuple(dims, shape_dict):
@@ -29,6 +145,18 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
         return store_or_group.empty(name, shape=shape, chunks=chunks, dtype=dtype)
     else:
         return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
+
+
+def _reduce(*args):
+    return None
+
+
+def _barrier(*args):
+    return None
+
+
+def _result(result, *args):
+    return result
 
 
 def rechunk(
@@ -81,7 +209,28 @@ def rechunk(
             )
             stores_delayed.append(delayed)
 
-        return stores_delayed
+        # This next block makes a task that
+        # 1. Returns the target Group (see dsk[name] = ...)...
+        # 2. which depends on each of the component arrays
+        # 3. but doesn't require transmitting large dependencies (depend on barrier_name,
+        #    rather than on part.key directly) to compute the result
+        always_new_token = uuid.uuid1().hex
+        barrier_name = "barrier-" + always_new_token
+        dsk2 = {
+            (barrier_name, i): (_barrier, part.key)
+            for i, part in enumerate(stores_delayed)
+        }
+
+        name = "rechunked-" + dask.base.tokenize([x.name for x in stores_delayed])
+        dsk = dask.base.merge(*[x.dask for x in stores_delayed], dsk2)
+        dsk[name] = (_result, target_group,) + tuple(
+            (barrier_name, i) for i, _ in enumerate(stores_delayed)
+        )
+        rechunked = Rechunked(
+            name, dsk, source=source, intermediate=temp_group, target=target_group,
+        )
+
+        return rechunked
 
     elif isinstance(source, zarr.core.Array):
         return _rechunk_array(
@@ -132,8 +281,6 @@ def _rechunk_array(
         shape, source_chunks, target_chunks, itemsize, max_mem
     )
 
-    print(source_chunks, read_chunks, int_chunks, write_chunks, target_chunks)
-
     source_read = dsa.from_zarr(
         source_array, chunks=read_chunks, storage_options=source_storage_options
     )
@@ -153,7 +300,13 @@ def _rechunk_array(
         target_store_delayed = dsa.store(
             source_read, target_array, lock=False, compute=False
         )
-        return target_store_delayed
+        return Rechunked(
+            target_store_delayed.key,
+            target_store_delayed.dask,
+            source=source_array,
+            intermediate=None,
+            target=target_array,
+        )
 
     else:
         # do intermediate store
@@ -169,7 +322,7 @@ def _rechunk_array(
             int_array, chunks=write_chunks, storage_options=temp_storage_options
         )
         target_store_delayed = dsa.store(
-            int_read, target_array, lock=False, compute=False
+            int_read, target_array, lock=False, compute=False,
         )
 
         # now do some hacking to chain these together into a single graph.
@@ -196,7 +349,12 @@ def _rechunk_array(
 
         # fuse
         dsk_fused, deps = fuse(target_dsk)
-        delayed_fused = Delayed(target_store_delayed.key, dsk_fused)
+        delayed_fused = Rechunked(
+            target_store_delayed.key,
+            dsk_fused,
+            source=source_array,
+            intermediate=int_read,
+            target=target_array,
+        )
 
-        print("Two step rechunking plan")
         return delayed_fused
