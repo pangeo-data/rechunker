@@ -33,6 +33,8 @@ class Rechunked(Delayed):
     * Source      : <zarr.core.Array (4, 4) float64>
     * Intermediate: dask.array<from-zarr, ... >
     * Target      : <zarr.core.Array (4, 4) float64>
+    >>> rechunked.execute()
+    <zarr.core.Array (4, 4) float64>
     """
 
     __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
@@ -50,7 +52,7 @@ class Rechunked(Delayed):
         Parameters
         ----------
         scheduler : string, optional
-            Which scheduler to use like "threads", "synchronous" or "processes".
+            Which Dask scheduler to use like "threads", "synchronous" or "processes".
             If not provided, the default is to check the global settings first,
             and then fall back to the collection defaults.
         optimize_graph : bool, optional
