@@ -23,13 +23,18 @@ The main function exposed by rechunker is ``rechunk``.
 
 .. autofunction:: rechunker.rechunk
 
+``rechunk`` returns a ``Rechunked`` object.
+
+.. autoclass:: rechunker.Rechunked
+
+
+Examples
+--------
+
 
 .. warning::
    You must manually delete the intermediate store when rechunker is finished
    executing.
-
-Examples
---------
 
 
 The Rechunker Algorithm
@@ -42,4 +47,5 @@ The algorithm used by rechunker tries to satisfy several constraints simultaneou
 - *Minimize the number of required tasks.* Specificallly, for N source chunks
   and M target chunks, the number of tasks is always less than N + M.
 - *Be embarassingly parallel.* The task graph should be as simple as possible,
-  to make it easy to execute using different task scheduling frameworks.
+  to make it easy to execute using different task scheduling frameworks. This also
+  means avoiding write locks, which are complex to manage.
