@@ -1,4 +1,4 @@
-name: Python package
+name: Tests
 
 on: [push, pull_request]
 
@@ -22,7 +22,10 @@ jobs:
         pip install .[dev]
     - name: Test with pytest
       run: |
-        pytest -v
+        py.test tests -v --cov=rechunker --cov-config .coveragerc --cov-report term-missing
+        coverage xml
+    - name: Codecov
+      uses: codecov/codecov-action@v1
 
   lint:
 
