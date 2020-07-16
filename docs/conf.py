@@ -83,6 +83,6 @@ html_sidebars = {
 html_static_path = ["_static"]
 
 html_show_sourcelink = True
-srclink_project = 'https://github.com/pangeo-data/pangeo'
+srclink_project = 'https://github.com/pangeo-data/rechunker'
 srclink_branch = 'master'
 srclink_src_path = 'docs/'
