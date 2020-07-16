@@ -186,7 +186,7 @@ def rechunk(
           be copied with no change to its chunk structure.
         - For a group, a dict is required. The keys correspond to array names.
           The values are ``target_chunks`` arguments for the array. For example,
-          ``{'foo': (20, 10), 'bar': {'x': 3, 'y': 5}, 'baz', None}``.
+          ``{'foo': (20, 10), 'bar': {'x': 3, 'y': 5}, 'baz': None}``.
           *All arrays you want to rechunk must be explicitly named.* Arrays
           that are not present in the ``target_chunks`` dict will be ignored.
 
