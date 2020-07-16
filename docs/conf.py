@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # https://nbsphinx.readthedocs.io/en/0.2.14/never-execute.html
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -62,7 +62,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".ipynb_checkpoints"]
 
 intersphinx_mapping = {
     "xarray": ("http://xarray.pydata.org/en/stable/", None),
-    "zarr": ("https://zarr.readthedocs.io/en/stable", None)
+    "zarr": ("https://zarr.readthedocs.io/en/stable", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -83,6 +83,6 @@ html_sidebars = {
 html_static_path = ["_static"]
 
 html_show_sourcelink = True
-srclink_project = 'https://github.com/pangeo-data/rechunker'
-srclink_branch = 'master'
-srclink_src_path = 'docs/'
+srclink_project = "https://github.com/pangeo-data/rechunker"
+srclink_branch = "master"
+srclink_src_path = "docs/"
