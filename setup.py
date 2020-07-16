@@ -17,6 +17,7 @@ doc_requires = [
     "sphinx-pangeo-theme",
     "numpydoc",
     "IPython",
+    "nbsphinx",
 ]
 
 extras_require = {
