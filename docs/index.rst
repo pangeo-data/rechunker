@@ -11,46 +11,46 @@ of the chunk structure of chunked array formats such as Zarr_ and TileDB_.
 Rechunker takes an input array (or group of arrays) stored in a persistent
 storage device (such as a filesystem or a cloud storage bucket) and writes
 out an array (or group of arrays) with the same data, but different chunking
-scheme, to a new location.
-
-Rechunker is designed to be used within a parallel execution framework such as
-Dask_.
-
-Usage
------
-
-The main function exposed by rechunker is :func:`rechunker.rechunk`.
-
-.. currentmodule:: rechunker
-
-.. autofunction:: rechunk
-
-``rechunk`` returns a :class:`Rechunked` object.
-
-.. autoclass:: Rechunked
+scheme, to a new location. Rechunker is designed to be used within a parallel
+execution framework such as Dask_.
 
 
-Examples
+Quickstart
+----------
+
+To install::
+
+  >>> pip install rechunker
+
+
+To use::
+
+  >>> import zarr
+  >>> from rechunker import rechunk
+  >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
+  >>> intermediate = "intermediate.zarr"
+  >>> target = "target.zarr"
+  >>> rechunked = rechunk(source, target_chunks=(4, 1), target_store=target,
+  ...                     max_mem=256000,
+  ...                     temp_store=intermediate)
+  >>> rechunked
+  <Rechunked>
+  * Source      : <zarr.core.Array (4, 4) float64>
+  * Intermediate: dask.array<from-zarr, ... >
+  * Target      : <zarr.core.Array (4, 4) float64>
+  >>> rechunked.execute()
+  <zarr.core.Array (4, 4) float64>
+
+
+Contents
 --------
 
+.. toctree::
+   :maxdepth: 2
 
-.. warning::
-   You must manually delete the intermediate store when rechunker is finished
-   executing.
-
-
-The Rechunker Algorithm
------------------------
-
-The algorithm used by rechunker tries to satisfy several constraints simultaneously:
-
-- *Respect memory limits.* Rechunker's algorithm guarantees that worker processes
-  will not exceed a user-specified memory threshold.
-- *Minimize the number of required tasks.* Specificallly, for N source chunks
-  and M target chunks, the number of tasks is always less than N + M.
-- *Be embarassingly parallel.* The task graph should be as simple as possible,
-  to make it easy to execute using different task scheduling frameworks. This also
-  means avoiding write locks, which are complex to manage.
+   tutorial
+   api
+   algorithm
 
 
 .. _Zarr: https://zarr.readthedocs.io/en/stable/

@@ -171,15 +171,38 @@ def rechunk(
     Parameters
     ----------
     source : zarr.Array or zarr.Group
-    target_chunks : tuple or dict
-        The desired chunks of the array after rechunking.
-    max_mem : int
-        The amount of memory (in bytes) that workers are allowed to use
+        Named dimensions in the Arrays will be parsed according to the
+        Xarray :ref:`xarray:zarr_encoding`.
+    target_chunks : tuple, dict, or None
+        The desired chunks of the array after rechunking. The structure
+        depends on ``source``.
+
+        - For a single array source, ``target_chunks`` can
+          be either a tuple (e.g. ``(20, 5, 3)``) or a dictionary
+          (e.g. ``{'time': 20, 'lat': 5, 'lon': 3}``). Dictionary syntax
+          requires the dimension names be present in the Zarr Array
+          attributes (see Xarray :ref:`xarray:zarr_encoding`.)
+          A value of ``None`` means that the array will
+          be copied with no change to its chunk structure.
+        - For a group, a dict is required. The keys correspond to array names.
+          The values are ``target_chunks`` arguments for the array. For example,
+          ``{'foo': (20, 10), 'bar': {'x': 3, 'y': 5}, 'baz', None}``.
+          *All arrays you want to rechunk must be explicitly named.* Arrays
+          that are not present in the ``target_chunks`` dict will be ignored.
+
+    max_mem : str or int
+        The amount of memory (in bytes) that workers are allowed to use. A
+        string (e.g. ``100MB``) can also be used.
     target_store : str, MutableMapping, or zarr.Store object
-        The location in which to store the final, rechunked result
+        The location in which to store the final, rechunked result.
+        Will be passed directly to :py:meth:`zarr.creation.create`
     temp_store : str, MutableMapping, or zarr.Store object, optional
         Location of temporary store for intermediate data. Can be deleted
         once rechunking is complete.
+
+    Returns
+    -------
+    rechunked : :class:`Rechunked` object
     """
 
     # these options are not tested yet; don't include in public API
