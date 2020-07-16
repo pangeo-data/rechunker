@@ -2,7 +2,7 @@ Rechunker
 =========
 
 [![Documentation Status](https://readthedocs.org/projects/rechunker/badge/?version=latest)](https://rechunker.readthedocs.io/en/latest/?badge=latest)
-![Python package](https://github.com/pangeo-data/rechunker/workflows/Python%20package/badge.svg)
+![Tests](https://github.com/pangeo-data/rechunker/workflows/Tests/badge.svg)
 [![Coverage](https://codecov.io/github/pangeo-data/rechunker/coverage.svg?branch=master)](https://codecov.io/github/pangeo-data/rechunker?branch=master)
 
 
