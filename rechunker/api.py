@@ -330,9 +330,14 @@ def _rechunk_array(
         target_store_delayed = dsa.store(
             source_read, target_array, lock=False, compute=False
         )
+
+        # fuse
+        target_dsk = dask.utils.ensure_dict(target_store_delayed.dask)
+        dsk_fused, deps = fuse(target_dsk)
+
         return Rechunked(
             target_store_delayed.key,
-            target_store_delayed.dask,
+            dsk_fused,
             source=source_array,
             intermediate=None,
             target=target_array,
