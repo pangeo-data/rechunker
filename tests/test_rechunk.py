@@ -3,6 +3,7 @@ import pytest
 import zarr
 import dask.array as dsa
 import dask
+import dask.core
 
 from rechunker import api
 
@@ -169,3 +170,25 @@ def test_no_intermediate():
     rechunked = api.Rechunked("a-b", {}, source=a, intermediate=None, target=b)
     assert "Intermediate" not in repr(rechunked)
     rechunked._repr_html_()
+
+
+def test_no_intermediate_fused(tmp_path):
+    shape = (8000, 8000)
+    source_chunks = (200, 8000)
+    dtype = "f4"
+    max_mem = 25600000
+    target_chunks = (400, 8000)
+
+    store_source = str(tmp_path / "source.zarr")
+    source_array = zarr.ones(
+        shape, chunks=source_chunks, dtype=dtype, store=store_source
+    )
+
+    target_store = str(tmp_path / "target.zarr")
+
+    rechunked = api.rechunk(
+        source_array, target_chunks, max_mem, target_store
+    )
+
+    num_tasks = len([v for v in rechunked.dask.values() if dask.core.istask(v)])
+    assert num_tasks < 20 # less than if no fuse
