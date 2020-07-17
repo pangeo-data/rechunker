@@ -186,9 +186,7 @@ def test_no_intermediate_fused(tmp_path):
 
     target_store = str(tmp_path / "target.zarr")
 
-    rechunked = api.rechunk(
-        source_array, target_chunks, max_mem, target_store
-    )
+    rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store)
 
     num_tasks = len([v for v in rechunked.dask.values() if dask.core.istask(v)])
-    assert num_tasks < 20 # less than if no fuse
+    assert num_tasks < 20  # less than if no fuse
