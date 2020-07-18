@@ -75,9 +75,7 @@ def test_rechunk_array(
 @pytest.mark.parametrize("shape", [(4, 4)])
 @pytest.mark.parametrize("source_chunks", [(1, 4)])
 @pytest.mark.parametrize("target_chunks", [(2, 2)])
-def test_incremental_rechunk_array(
-    tmp_path, shape, source_chunks, target_chunks
-):
+def test_incremental_rechunk_array(tmp_path, shape, source_chunks, target_chunks):
 
     import operator
     from functools import reduce
@@ -88,9 +86,7 @@ def test_incremental_rechunk_array(
 
     ### Create source array ###
     store_source = str(tmp_path / "source.zarr")
-    source_array = zarr.empty(
-        shape, chunks=source_chunks, store=store_source
-    )
+    source_array = zarr.empty(shape, chunks=source_chunks, store=store_source)
     source_array[:] = np.arange(prod(shape)).reshape(*shape)
 
     ### Create targets ###
@@ -104,7 +100,7 @@ def test_incremental_rechunk_array(
         target_store=target_store,
         max_mem=256000,
         temp_store=temp_store,
-        source_slice=((0, shape[0] // 2), None)
+        source_slice=((0, shape[0] // 2), None),
     ).execute()
 
     # seconds pass
@@ -115,7 +111,7 @@ def test_incremental_rechunk_array(
         max_mem=256000,
         temp_store=temp_store,
         source_slice=((shape[0] // 2, None), None),
-        target_append=True
+        target_append=True,
     ).execute()
 
     target_array = zarr.open(target_store)

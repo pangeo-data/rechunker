@@ -40,9 +40,27 @@ class Rechunked(Delayed):
     <zarr.core.Array (4, 4) float64>
     """
 
-    __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target", "_target_original")
+    __slots__ = (
+        "_key",
+        "dask",
+        "_length",
+        "_source",
+        "_intermediate",
+        "_target",
+        "_target_original",
+    )
 
-    def __init__(self, key, dsk, length=None, *, source, intermediate, target, target_original=None):
+    def __init__(
+        self,
+        key,
+        dsk,
+        length=None,
+        *,
+        source,
+        intermediate,
+        target,
+        target_original=None,
+    ):
         self._source = source
         self._intermediate = intermediate
         self._target = target
@@ -169,8 +187,13 @@ def _result(result, *args):
 
 
 def rechunk(
-    source, target_chunks, max_mem, target_store, temp_store=None,
-    source_slice=None, target_append=False,
+    source,
+    target_chunks,
+    max_mem,
+    target_store,
+    temp_store=None,
+    source_slice=None,
+    target_append=False,
 ):
     """
     Rechunk a Zarr Array or Group
@@ -317,8 +340,13 @@ def _rechunk_array(
     if source_slice is None:
         shape = source_array.shape
     else:
-        source_slice = tuple(slice(None) if s is None else slice(*s) for s in source_slice)
-        shape = tuple(len(range(*sl.indices(sh))) for sh, sl in zip(source_array.shape, source_slice))
+        source_slice = tuple(
+            slice(None) if s is None else slice(*s) for s in source_slice
+        )
+        shape = tuple(
+            len(range(*sl.indices(sh)))
+            for sh, sl in zip(source_array.shape, source_slice)
+        )
     source_chunks = source_array.chunks
     dtype = source_array.dtype
     itemsize = dtype.itemsize
@@ -357,7 +385,7 @@ def _rechunk_array(
 
     if target_append:
         target_store_or_group_original = target_store_or_group
-        target_store_or_group = 'to_append_' + target_store_or_group
+        target_store_or_group = "to_append_" + target_store_or_group
     else:
         target_store_or_group_original = None
 
@@ -381,7 +409,7 @@ def _rechunk_array(
             source=source_array,
             intermediate=None,
             target=target_array,
-            target_original=target_store_or_group_original
+            target_original=target_store_or_group_original,
         )
 
     else:
@@ -431,7 +459,7 @@ def _rechunk_array(
             source=source_array,
             intermediate=int_read,
             target=target_array,
-            target_original=target_store_or_group_original
+            target_original=target_store_or_group_original,
         )
 
         return delayed_fused
