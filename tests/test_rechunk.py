@@ -72,6 +72,59 @@ def test_rechunk_array(
     assert dsa.equal(a_tar, 1).all().compute()
 
 
+
+
+@pytest.mark.parametrize("shape", [(4, 4)])
+@pytest.mark.parametrize("source_chunks", [(1, 4)])
+@pytest.mark.parametrize("target_chunks", [(2, 2)])
+def test_incremental_rechunk_array(
+    tmp_path, shape, source_chunks, target_chunks
+):
+
+    import operator
+    from functools import reduce
+    import numpy as np
+    def prod(iterable):
+        return reduce(operator.mul, iterable, 1)
+
+    ### Create source array ###
+    store_source = str(tmp_path / "source.zarr")
+    source_array = zarr.empty(
+        shape, chunks=source_chunks, store=store_source
+    )
+    source_array[:] = np.arange(prod(shape)).reshape(*shape)
+
+    ### Create targets ###
+    target_store = str(tmp_path / "target.zarr")
+    temp_store = str(tmp_path / "temp.zarr")
+
+    # first pass
+    api.rechunk(
+        source_array,
+        target_chunks=target_chunks,
+        target_store=target_store,
+        max_mem=256000,
+        temp_store=temp_store,
+        source_slice=((0, shape[0] // 2), None)
+    ).execute()
+
+    # seconds pass
+    api.rechunk(
+        source_array,
+        target_chunks=target_chunks,
+        target_store=target_store,
+        max_mem=256000,
+        temp_store=temp_store,
+        source_slice=((shape[0] // 2, None), None),
+        target_append=True
+    ).execute()
+
+    target_array = zarr.open(target_store)
+    assert target_array.shape == shape
+    assert target_array.chunks == target_chunks
+    assert target_array[:].all() == source_array[:].all()
+
+
 def test_rechunk_group(tmp_path):
     store_source = str(tmp_path / "source.zarr")
     group = zarr.group(store_source)
