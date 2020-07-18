@@ -40,12 +40,31 @@ class Rechunked(Delayed):
     <zarr.core.Array (4, 4) float64>
     """
 
-    __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
+    __slots__ = (
+        "_key",
+        "dask",
+        "_length",
+        "_source",
+        "_intermediate",
+        "_target",
+        "_target_original",
+    )
 
-    def __init__(self, key, dsk, length=None, *, source, intermediate, target):
+    def __init__(
+        self,
+        key,
+        dsk,
+        length=None,
+        *,
+        source,
+        intermediate,
+        target,
+        target_original=None,
+    ):
         self._source = source
         self._intermediate = intermediate
         self._target = target
+        self._target_original = target_original
         super().__init__(key, dsk, length=length)
 
     def execute(self, **kwargs):
@@ -70,7 +89,12 @@ class Rechunked(Delayed):
         :func:`rechunker.rechunk`.
         """
         self.compute(**kwargs)
-        return self._target
+        if self._target_original is None:
+            return self._target
+
+        target = zarr.open(self._target_original)
+        target.append(self._target)
+        return target
 
     def __repr__(self):
         if self._intermediate is not None:
@@ -163,7 +187,13 @@ def _result(result, *args):
 
 
 def rechunk(
-    source, target_chunks, max_mem, target_store, temp_store=None,
+    source,
+    target_chunks,
+    max_mem,
+    target_store,
+    temp_store=None,
+    source_slice=None,
+    target_append=False,
 ):
     """
     Rechunk a Zarr Array or Group
@@ -199,6 +229,23 @@ def rechunk(
     temp_store : str, MutableMapping, or zarr.Store object, optional
         Location of temporary store for intermediate data. Can be deleted
         once rechunking is complete.
+    source_slice : tuple, dict or None
+        The slice of the source to rechunk. The structure depends on ``source``.
+
+        - For a single array source, ``source_slice`` can be either a tuple (e.g.
+        ``((0, 20), None, None)`` or a dictionary (e.g. ``{'time': (0, 20),
+        'lat': None, 'lon': None}``). Dictionary syntax requires the dimension
+        names be present in the Zarr Array attributes (see Xarray :ref:`xarray:zarr_encoding`.)
+        A value of ``None`` means that the whole source array will be rechunked.
+        - For a group, a dict is required. The keys correspond to array names.
+        The values are ``source_slice`` arguments for the array. For example,
+        ``{'foo': ((0, 20), None, None), 'bar': {'time': (0, 20),
+        'lat': None, 'lon': None}, 'baz': None}``.
+        *All arrays you want to slice must be explicitly named.* Arrays
+        that are not present in the ``source_slice`` dict will be ignored.
+    target_append : bool, optional
+        Whether to append the rechunked result to ``target_store`` or not. If ``True``,
+        ``target_store`` must alreay exist.
 
     Returns
     -------
@@ -267,6 +314,8 @@ def rechunk(
             max_mem,
             target_store,
             temp_store_or_group=temp_store,
+            source_slice=source_slice,
+            target_append=target_append,
             **kwargs,
         )
 
@@ -280,13 +329,24 @@ def _rechunk_array(
     max_mem,
     target_store_or_group,
     temp_store_or_group=None,
+    source_slice=None,
+    target_append=False,
     name=None,
     source_storage_options={},
     temp_storage_options={},
     target_storage_options={},
 ):
 
-    shape = source_array.shape
+    if source_slice is None:
+        shape = source_array.shape
+    else:
+        source_slice = tuple(
+            slice(None) if s is None else slice(*s) for s in source_slice
+        )
+        shape = tuple(
+            len(range(*sl.indices(sh)))
+            for sh, sl in zip(source_array.shape, source_slice)
+        )
     source_chunks = source_array.chunks
     dtype = source_array.dtype
     itemsize = dtype.itemsize
@@ -314,12 +374,20 @@ def _rechunk_array(
     source_read = dsa.from_zarr(
         source_array, chunks=read_chunks, storage_options=source_storage_options
     )
+    if source_slice is not None:
+        source_read = source_read[source_slice]
 
     # create target
     shape = tuple(int(x) for x in shape)  # ensure python ints for serialization
     target_chunks = tuple(int(x) for x in target_chunks)
     int_chunks = tuple(int(x) for x in int_chunks)
     write_chunks = tuple(int(x) for x in write_chunks)
+
+    if target_append:
+        target_store_or_group_original = target_store_or_group
+        target_store_or_group = "to_append_" + target_store_or_group
+    else:
+        target_store_or_group_original = None
 
     target_array = _zarr_empty(
         shape, target_store_or_group, target_chunks, dtype, name=name
@@ -341,6 +409,7 @@ def _rechunk_array(
             source=source_array,
             intermediate=None,
             target=target_array,
+            target_original=target_store_or_group_original,
         )
 
     else:
@@ -390,6 +459,7 @@ def _rechunk_array(
             source=source_array,
             intermediate=int_read,
             target=target_array,
+            target_original=target_store_or_group_original,
         )
 
         return delayed_fused
