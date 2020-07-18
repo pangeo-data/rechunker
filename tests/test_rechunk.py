@@ -72,8 +72,6 @@ def test_rechunk_array(
     assert dsa.equal(a_tar, 1).all().compute()
 
 
-
-
 @pytest.mark.parametrize("shape", [(4, 4)])
 @pytest.mark.parametrize("source_chunks", [(1, 4)])
 @pytest.mark.parametrize("target_chunks", [(2, 2)])
@@ -84,6 +82,7 @@ def test_incremental_rechunk_array(
     import operator
     from functools import reduce
     import numpy as np
+
     def prod(iterable):
         return reduce(operator.mul, iterable, 1)
 
