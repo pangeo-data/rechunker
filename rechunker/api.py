@@ -166,11 +166,11 @@ def rechunk(
     source, target_chunks, max_mem, target_store, temp_store=None,
 ):
     """
-    Rechunk a Zarr Array or Group
+    Rechunk a Zarr Array or Group, or a Dask Array
 
     Parameters
     ----------
-    source : zarr.Array or zarr.Group
+    source : zarr.Array, zarr.Group, or dask.array.Array
         Named dimensions in the Arrays will be parsed according to the
         Xarray :ref:`xarray:zarr_encoding`.
     target_chunks : tuple, dict, or None
@@ -260,7 +260,7 @@ def rechunk(
 
         return rechunked
 
-    elif isinstance(source, zarr.core.Array):
+    elif isinstance(source, zarr.core.Array) or isinstance(source, dask.array.Array):
         return _rechunk_array(
             source,
             target_chunks,
@@ -271,7 +271,7 @@ def rechunk(
         )
 
     else:
-        raise ValueError("Source must be a Zarr Array or Group.")
+        raise ValueError("Source must be a Zarr Array or Group, or a Dask Array.")
 
 
 def _rechunk_array(
@@ -287,7 +287,11 @@ def _rechunk_array(
 ):
 
     shape = source_array.shape
-    source_chunks = source_array.chunks
+    source_chunks = (
+        source_array.chunksize
+        if isinstance(source_array, dask.array.Array)
+        else source_array.chunks
+    )
     dtype = source_array.dtype
     itemsize = dtype.itemsize
 
@@ -307,13 +311,23 @@ def _rechunk_array(
 
     max_mem = dask.utils.parse_bytes(max_mem)
 
+    # don't consolidate reads for Dask arrays
+    consolidate_reads = isinstance(source_array, zarr.core.Array)
     read_chunks, int_chunks, write_chunks = rechunking_plan(
-        shape, source_chunks, target_chunks, itemsize, max_mem
+        shape,
+        source_chunks,
+        target_chunks,
+        itemsize,
+        max_mem,
+        consolidate_reads=consolidate_reads,
     )
 
-    source_read = dsa.from_zarr(
-        source_array, chunks=read_chunks, storage_options=source_storage_options
-    )
+    if isinstance(source_array, dask.array.Array):
+        source_read = source_array
+    else:
+        source_read = dsa.from_zarr(
+            source_array, chunks=read_chunks, storage_options=source_storage_options
+        )
 
     # create target
     shape = tuple(int(x) for x in shape)  # ensure python ints for serialization
@@ -324,7 +338,10 @@ def _rechunk_array(
     target_array = _zarr_empty(
         shape, target_store_or_group, target_chunks, dtype, name=name
     )
-    target_array.attrs.update(source_array.attrs)
+    try:
+        target_array.attrs.update(source_array.attrs)
+    except AttributeError:
+        pass
 
     if read_chunks == write_chunks:
         target_store_delayed = dsa.store(

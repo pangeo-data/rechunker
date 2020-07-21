@@ -72,6 +72,39 @@ def test_rechunk_array(
     assert dsa.equal(a_tar, 1).all().compute()
 
 
+@pytest.mark.parametrize("shape", [(8000, 8000)])
+@pytest.mark.parametrize("source_chunks", [(200, 8000), (800, 8000)])
+@pytest.mark.parametrize("dtype", ["f4"])
+@pytest.mark.parametrize("max_mem", [25600000])
+@pytest.mark.parametrize(
+    "target_chunks", [(200, 8000), (800, 8000), (8000, 200), (400, 8000),],
+)
+def test_rechunk_dask_array(
+    tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
+):
+
+    ### Create source array ###
+    source_array = dsa.ones(shape, chunks=source_chunks, dtype=dtype)
+
+    ### Create targets ###
+    target_store = str(tmp_path / "target.zarr")
+    temp_store = str(tmp_path / "temp.zarr")
+
+    delayed = api.rechunk(
+        source_array, target_chunks, max_mem, target_store, temp_store=temp_store
+    )
+    assert isinstance(delayed, api.Rechunked)
+
+    target_array = zarr.open(target_store)
+
+    assert target_array.chunks == tuple(target_chunks)
+
+    result = delayed.execute()
+    assert isinstance(result, zarr.Array)
+    a_tar = dsa.from_zarr(target_array)
+    assert dsa.equal(a_tar, 1).all().compute()
+
+
 def test_rechunk_group(tmp_path):
     store_source = str(tmp_path / "source.zarr")
     group = zarr.group(store_source)
