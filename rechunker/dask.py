@@ -74,9 +74,7 @@ def _barrier(*args):
     return None
 
 
-def staged_copy(
-    staged_copy_specs: Iterable[StagedCopySpec],
-) -> Delayed:
+def staged_copy(staged_copy_specs: Iterable[StagedCopySpec],) -> Delayed:
 
     stores_delayed = [_staged_array_copy(spec) for spec in staged_copy_specs]
 
