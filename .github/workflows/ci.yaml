@@ -45,4 +45,4 @@ jobs:
         flake8
     - name: Check formatting
       run: |
-        black --check .
+        black --check . -v
