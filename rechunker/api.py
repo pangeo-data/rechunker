@@ -6,8 +6,8 @@ import zarr
 import dask
 
 from rechunker.algorithm import rechunking_plan
-from rechunker.core import CopySpec, StagedCopySpec
 import rechunker.dask
+from rechunker.types import CopySpec, StagedCopySpec
 
 
 class Rechunked:

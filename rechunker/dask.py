@@ -6,7 +6,7 @@ import dask.array
 from dask.delayed import Delayed
 from dask.optimization import fuse
 
-from rechunker.core import CopySpec, StagedCopySpec
+from rechunker.types import CopySpec, StagedCopySpec
 
 
 def _direct_copy_array(copy_spec: CopySpec) -> Delayed:
