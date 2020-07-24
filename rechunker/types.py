@@ -5,6 +5,7 @@ import zarr
 
 class CopySpec(NamedTuple):
     """Specifcation of how to copy between two arrays."""
+
     # TODO: remove Any by making CopySpec a Generic, once we only support Python
     # 3.7+: https://stackoverflow.com/questions/50530959
     source: Any
