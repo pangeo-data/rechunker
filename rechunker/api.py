@@ -154,11 +154,11 @@ def rechunk(
     staged_copy=rechunker.dask.staged_copy,
 ):
     """
-    Rechunk a Zarr Array or Group
+    Rechunk a Zarr Array or Group, or a Dask Array
 
     Parameters
     ----------
-    source : zarr.Array or zarr.Group
+    source : zarr.Array, zarr.Group, or dask.array.Array
         Named dimensions in the Arrays will be parsed according to the
         Xarray :ref:`xarray:zarr_encoding`.
     target_chunks : tuple, dict, or None
@@ -231,7 +231,7 @@ def _setup_rechunk(
 
         return copy_specs, temp_group, target_group
 
-    elif isinstance(source, zarr.core.Array):
+    elif isinstance(source, zarr.core.Array) or isinstance(source, dask.array.Array):
 
         copy_spec = _setup_array_rechunk(
             source,
@@ -247,7 +247,7 @@ def _setup_rechunk(
         return [copy_spec], intermediate, target
 
     else:
-        raise ValueError("Source must be a Zarr Array or Group.")
+        raise ValueError("Source must be a Zarr Array or Group, or a Dask Array.")
 
 
 def _setup_array_rechunk(
@@ -259,7 +259,11 @@ def _setup_array_rechunk(
     name=None,
 ) -> StagedCopySpec:
     shape = source_array.shape
-    source_chunks = source_array.chunks
+    source_chunks = (
+        source_array.chunksize
+        if isinstance(source_array, dask.array.Array)
+        else source_array.chunks
+    )
     dtype = source_array.dtype
     itemsize = dtype.itemsize
 
@@ -280,8 +284,15 @@ def _setup_array_rechunk(
     # TODO: rewrite to avoid the hard dependency on dask
     max_mem = dask.utils.parse_bytes(max_mem)
 
+    # don't consolidate reads for Dask arrays
+    consolidate_reads = isinstance(source_array, zarr.core.Array)
     read_chunks, int_chunks, write_chunks = rechunking_plan(
-        shape, source_chunks, target_chunks, itemsize, max_mem
+        shape,
+        source_chunks,
+        target_chunks,
+        itemsize,
+        max_mem,
+        consolidate_reads=consolidate_reads,
     )
 
     # create target
@@ -293,7 +304,10 @@ def _setup_array_rechunk(
     target_array = _zarr_empty(
         shape, target_store_or_group, target_chunks, dtype, name=name
     )
-    target_array.attrs.update(source_array.attrs)
+    try:
+        target_array.attrs.update(source_array.attrs)
+    except AttributeError:
+        pass
 
     if read_chunks == write_chunks:
         return StagedCopySpec([CopySpec(source_array, target_array, read_chunks)])

@@ -1,10 +1,11 @@
-from typing import Iterable, NamedTuple, Tuple
+from typing import Iterable, NamedTuple, Tuple, Union
 
+import dask.array
 import zarr
 
 
 class CopySpec(NamedTuple):
-    source: zarr.Array
+    source: Union[zarr.Array, dask.array.Array]
     target: zarr.Array
     chunks: Tuple[int, ...]
 

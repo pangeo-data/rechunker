@@ -12,7 +12,10 @@ from rechunker.core import CopySpec, StagedCopySpec
 def _direct_copy_array(copy_spec: CopySpec) -> Delayed:
     """Direct copy between zarr arrays."""
     source_array, target_array, chunks = copy_spec
-    source_read = dask.array.from_zarr(source_array, chunks=chunks)
+    if isinstance(source_array, dask.array.Array):
+        source_read = source_array
+    else:
+        source_read = dask.array.from_zarr(source_array, chunks=chunks)
     target_store_delayed = dask.array.store(
         source_read, target_array, lock=False, compute=False
     )
