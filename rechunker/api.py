@@ -1,19 +1,16 @@
 """User-facing functions."""
 import html
 import textwrap
-import uuid
 
 import zarr
 import dask
-import dask.array as dsa
-from dask.optimization import fuse
-from dask.delayed import Delayed
-
 
 from rechunker.algorithm import rechunking_plan
+from rechunker.core import CopySpec, StagedCopySpec
+import rechunker.dask
 
 
-class Rechunked(Delayed):
+class Rechunked:
     """
     A delayed rechunked result.
 
@@ -40,13 +37,11 @@ class Rechunked(Delayed):
     <zarr.core.Array (4, 4) float64>
     """
 
-    __slots__ = ("_key", "dask", "_length", "_source", "_intermediate", "_target")
-
-    def __init__(self, key, dsk, length=None, *, source, intermediate, target):
+    def __init__(self, delayed, source, intermediate, target):
+        self._delayed = delayed
         self._source = source
         self._intermediate = intermediate
         self._target = target
-        super().__init__(key, dsk, length=length)
 
     def execute(self, **kwargs):
         """
@@ -69,7 +64,7 @@ class Rechunked(Delayed):
         The same type of the ``source_array`` originally provided to
         :func:`rechunker.rechunk`.
         """
-        self.compute(**kwargs)
+        self._delayed.compute(**kwargs)
         return self._target
 
     def __repr__(self):
@@ -150,20 +145,13 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
         return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
 
 
-def _reduce(*args):
-    return None
-
-
-def _barrier(*args):
-    return None
-
-
-def _result(result, *args):
-    return result
-
-
 def rechunk(
-    source, target_chunks, max_mem, target_store, temp_store=None,
+    source,
+    target_chunks,
+    max_mem,
+    target_store,
+    temp_store=None,
+    staged_copy=rechunker.dask.staged_copy,
 ):
     """
     Rechunk a Zarr Array or Group
@@ -199,24 +187,28 @@ def rechunk(
     temp_store : str, MutableMapping, or zarr.Store object, optional
         Location of temporary store for intermediate data. Can be deleted
         once rechunking is complete.
+    staged_copy: function
+        Implementation of copying between zarr arrays.
 
     Returns
     -------
     rechunked : :class:`Rechunked` object
     """
-
-    # these options are not tested yet; don't include in public API
-    kwargs = dict(
-        source_storage_options={}, temp_storage_options={}, target_storage_options={},
+    copy_specs, intermediate, target = _setup_rechunk(
+        source, target_chunks, max_mem, target_store, temp_store
     )
+    delayed = staged_copy(copy_specs)
+    return Rechunked(delayed, source, intermediate, target)
 
+
+def _setup_rechunk(
+    source, target_chunks, max_mem, target_store, temp_store=None,
+):
     if isinstance(source, zarr.hierarchy.Group):
         if not isinstance(target_chunks, dict):
             raise ValueError(
-                "You must specificy ``target-chunks`` as a dict when rechunking a group."
+                "You must specify ``target-chunks`` as a dict when rechunking a group."
             )
-
-        stores_delayed = []
 
         if temp_store:
             temp_group = zarr.group(temp_store)
@@ -225,67 +217,47 @@ def rechunk(
         target_group = zarr.group(target_store)
         target_group.attrs.update(source.attrs)
 
+        copy_specs = []
         for array_name, array_target_chunks in target_chunks.items():
-            delayed = _rechunk_array(
+            copy_spec = _setup_array_rechunk(
                 source[array_name],
                 array_target_chunks,
                 max_mem,
                 target_group,
                 temp_store_or_group=temp_group,
                 name=array_name,
-                **kwargs,
             )
-            stores_delayed.append(delayed)
+            copy_specs.append(copy_spec)
 
-        # This next block makes a task that
-        # 1. Returns the target Group (see dsk[name] = ...)...
-        # 2. which depends on each of the component arrays
-        # 3. but doesn't require transmitting large dependencies (depend on barrier_name,
-        #    rather than on part.key directly) to compute the result
-        always_new_token = uuid.uuid1().hex
-        barrier_name = "barrier-" + always_new_token
-        dsk2 = {
-            (barrier_name, i): (_barrier, part.key)
-            for i, part in enumerate(stores_delayed)
-        }
-
-        name = "rechunked-" + dask.base.tokenize([x.name for x in stores_delayed])
-        dsk = dask.base.merge(*[x.dask for x in stores_delayed], dsk2)
-        dsk[name] = (_result, target_group,) + tuple(
-            (barrier_name, i) for i, _ in enumerate(stores_delayed)
-        )
-        rechunked = Rechunked(
-            name, dsk, source=source, intermediate=temp_group, target=target_group,
-        )
-
-        return rechunked
+        return copy_specs, temp_group, target_group
 
     elif isinstance(source, zarr.core.Array):
-        return _rechunk_array(
+
+        copy_spec = _setup_array_rechunk(
             source,
             target_chunks,
             max_mem,
             target_store,
             temp_store_or_group=temp_store,
-            **kwargs,
         )
+        intermediate = (
+            copy_spec.stages[0].target if len(copy_spec.stages) == 2 else None
+        )
+        target = copy_spec.stages[-1].target
+        return [copy_spec], intermediate, target
 
     else:
         raise ValueError("Source must be a Zarr Array or Group.")
 
 
-def _rechunk_array(
+def _setup_array_rechunk(
     source_array,
     target_chunks,
     max_mem,
     target_store_or_group,
     temp_store_or_group=None,
     name=None,
-    source_storage_options={},
-    temp_storage_options={},
-    target_storage_options={},
-):
-
+) -> StagedCopySpec:
     shape = source_array.shape
     source_chunks = source_array.chunks
     dtype = source_array.dtype
@@ -305,14 +277,11 @@ def _rechunk_array(
                 f"Got array_dims {array_dims}, target_chunks {target_chunks}."
             )
 
+    # TODO: rewrite to avoid the hard dependency on dask
     max_mem = dask.utils.parse_bytes(max_mem)
 
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape, source_chunks, target_chunks, itemsize, max_mem
-    )
-
-    source_read = dsa.from_zarr(
-        source_array, chunks=read_chunks, storage_options=source_storage_options
     )
 
     # create target
@@ -327,69 +296,16 @@ def _rechunk_array(
     target_array.attrs.update(source_array.attrs)
 
     if read_chunks == write_chunks:
-        target_store_delayed = dsa.store(
-            source_read, target_array, lock=False, compute=False
-        )
-
-        # fuse
-        target_dsk = dask.utils.ensure_dict(target_store_delayed.dask)
-        dsk_fused, deps = fuse(target_dsk)
-
-        return Rechunked(
-            target_store_delayed.key,
-            dsk_fused,
-            source=source_array,
-            intermediate=None,
-            target=target_array,
-        )
-
+        return StagedCopySpec([CopySpec(source_array, target_array, read_chunks)])
     else:
         # do intermediate store
         assert temp_store_or_group is not None
         int_array = _zarr_empty(
             shape, temp_store_or_group, int_chunks, dtype, name=name
         )
-        intermediate_store_delayed = dsa.store(
-            source_read, int_array, lock=False, compute=False
+        return StagedCopySpec(
+            [
+                CopySpec(source_array, int_array, read_chunks),
+                CopySpec(int_array, target_array, write_chunks),
+            ]
         )
-
-        int_read = dsa.from_zarr(
-            int_array, chunks=write_chunks, storage_options=temp_storage_options
-        )
-        target_store_delayed = dsa.store(
-            int_read, target_array, lock=False, compute=False,
-        )
-
-        # now do some hacking to chain these together into a single graph.
-        # get the two graphs as dicts
-        int_dsk = dask.utils.ensure_dict(intermediate_store_delayed.dask)
-        target_dsk = dask.utils.ensure_dict(target_store_delayed.dask)
-
-        # find the root store key representing the read
-        root_keys = []
-        for key in target_dsk:
-            if isinstance(key, str):
-                if key.startswith("from-zarr"):
-                    root_keys.append(key)
-        assert len(root_keys) == 1
-        root_key = root_keys[0]
-
-        # now rewrite the graph
-        target_dsk[root_key] = (
-            lambda a, *b: a,
-            target_dsk[root_key],
-            *int_dsk[intermediate_store_delayed.key],
-        )
-        target_dsk.update(int_dsk)
-
-        # fuse
-        dsk_fused, deps = fuse(target_dsk)
-        delayed_fused = Rechunked(
-            target_store_delayed.key,
-            dsk_fused,
-            source=source_array,
-            intermediate=int_read,
-            target=target_array,
-        )
-
-        return delayed_fused

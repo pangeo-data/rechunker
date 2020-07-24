@@ -4,6 +4,7 @@ import zarr
 import dask.array as dsa
 import dask
 import dask.core
+from dask.delayed import Delayed
 
 from rechunker import api
 
@@ -88,17 +89,17 @@ def test_rechunk_group(tmp_path):
     max_mem = 1600  # should force a two-step plan for a
     target_chunks = {"a": (5, 10, 4), "b": (20,)}
 
-    delayed = api.rechunk(
+    rechunked = api.rechunk(
         group, target_chunks, max_mem, target_store, temp_store=temp_store
     )
-    assert isinstance(delayed, api.Rechunked)
+    assert isinstance(rechunked, api.Rechunked)
 
     target_group = zarr.open(target_store)
     assert "a" in target_group
     assert "b" in target_group
     assert dict(group.attrs) == dict(target_group.attrs)
 
-    dask.compute(delayed)
+    rechunked.execute()
     for aname in target_chunks:
         a_tar = dsa.from_zarr(target_group[aname])
         assert dsa.equal(a_tar, 1).all().compute()
@@ -160,14 +161,15 @@ def test_repr(rechunked):
     assert all(thing in repr_str for thing in ["Source", "Intermediate", "Target"])
 
 
-def test_rerp_html(rechunked):
+def test_repr_html(rechunked):
     rechunked._repr_html_()  # no exceptions
 
 
 def test_no_intermediate():
     a = zarr.ones((4, 4), chunks=(2, 2))
     b = zarr.ones((4, 4), chunks=(4, 1))
-    rechunked = api.Rechunked("a-b", {}, source=a, intermediate=None, target=b)
+    delayed = Delayed("a-b", {})
+    rechunked = api.Rechunked(delayed, source=a, intermediate=None, target=b)
     assert "Intermediate" not in repr(rechunked)
     rechunked._repr_html_()
 
@@ -188,5 +190,5 @@ def test_no_intermediate_fused(tmp_path):
 
     rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store)
 
-    num_tasks = len([v for v in rechunked.dask.values() if dask.core.istask(v)])
+    num_tasks = len([v for v in rechunked._delayed.dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
