@@ -17,9 +17,6 @@ class Rechunked:
     This represents the rechunking plan, and when executed will perform
     the rechunking and return the rechunked array.
 
-    Methods
-    -------
-
     Examples
     --------
     >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
@@ -58,15 +55,9 @@ class Rechunked:
 
         Parameters
         ----------
-        scheduler : string, optional
-            Which Dask scheduler to use like "threads", "synchronous" or "processes".
-            If not provided, the default is to check the global settings first,
-            and then fall back to the collection defaults.
-        optimize_graph : bool, optional
-            If True [default], the graph is optimized before computation.
-            Otherwise the graph is run as is. This can be useful for debugging.
-        kwargs
-            Extra keywords to forward to the scheduler function.
+        **kwargs
+            Keyword arguments are forwarded to the executor's ``execute_plan``
+            method.
 
         Returns
         -------
@@ -155,6 +146,8 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
 
 
 def _get_executor(name: str) -> Executor:
+    # converts a string name into a Executor instance
+    # imports are conditional to avoid hard dependencies
     if name.lower() == "dask":
         from rechunker.executors.dask import DaskExecutor
 
@@ -255,7 +248,7 @@ def _setup_rechunk(
 
         return copy_specs, temp_group, target_group
 
-    elif isinstance(source, zarr.core.Array) or isinstance(source, dask.array.Array):
+    elif isinstance(source, (zarr.core.Array, dask.array.Array)):
 
         copy_spec = _setup_array_rechunk(
             source,
