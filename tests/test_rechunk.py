@@ -4,7 +4,6 @@ import zarr
 import dask.array as dsa
 import dask
 import dask.core
-from dask.delayed import Delayed
 
 from rechunker import api
 
@@ -22,6 +21,9 @@ def target_chunks(request):
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
+    "executor", ["dask", "python"],
+)
+@pytest.mark.parametrize(
     "dims,target_chunks",
     [
         (None, (8000, 200)),
@@ -36,7 +38,7 @@ def target_chunks(request):
     ],
 )
 def test_rechunk_array(
-    tmp_path, shape, source_chunks, dtype, dims, target_chunks, max_mem
+    tmp_path, shape, source_chunks, dtype, dims, target_chunks, max_mem, executor
 ):
 
     ### Create source array ###
@@ -53,10 +55,15 @@ def test_rechunk_array(
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    delayed = api.rechunk(
-        source_array, target_chunks, max_mem, target_store, temp_store=temp_store
+    rechunked = api.rechunk(
+        source_array,
+        target_chunks,
+        max_mem,
+        target_store,
+        temp_store=temp_store,
+        executor=executor,
     )
-    assert isinstance(delayed, api.Rechunked)
+    assert isinstance(rechunked, api.Rechunked)
 
     target_array = zarr.open(target_store)
 
@@ -67,7 +74,7 @@ def test_rechunk_array(
     assert target_array.chunks == tuple(target_chunks_list)
     assert dict(source_array.attrs) == dict(target_array.attrs)
 
-    result = delayed.execute()
+    result = rechunked.execute()
     assert isinstance(result, zarr.Array)
     a_tar = dsa.from_zarr(target_array)
     assert dsa.equal(a_tar, 1).all().compute()
@@ -91,16 +98,16 @@ def test_rechunk_dask_array(
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    delayed = api.rechunk(
+    rechunked = api.rechunk(
         source_array, target_chunks, max_mem, target_store, temp_store=temp_store
     )
-    assert isinstance(delayed, api.Rechunked)
+    assert isinstance(rechunked, api.Rechunked)
 
     target_array = zarr.open(target_store)
 
     assert target_array.chunks == tuple(target_chunks)
 
-    result = delayed.execute()
+    result = rechunked.execute()
     assert isinstance(result, zarr.Array)
     a_tar = dsa.from_zarr(target_array)
     assert dsa.equal(a_tar, 1).all().compute()
@@ -156,7 +163,7 @@ def rechunked(tmp_path, request):
         max_mem = 1600  # should force a two-step plan for a
         target_chunks = {"a": (5, 10, 4), "b": (20,)}
 
-        delayed = api.rechunk(
+        rechunked = api.rechunk(
             group, target_chunks, max_mem, target_store, temp_store=temp_store
         )
     else:
@@ -180,10 +187,10 @@ def rechunked(tmp_path, request):
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
 
-        delayed = api.rechunk(
+        rechunked = api.rechunk(
             source_array, target_chunks, max_mem, target_store, temp_store=temp_store
         )
-    return delayed
+    return rechunked
 
 
 def test_repr(rechunked):
@@ -201,8 +208,7 @@ def test_repr_html(rechunked):
 def test_no_intermediate():
     a = zarr.ones((4, 4), chunks=(2, 2))
     b = zarr.ones((4, 4), chunks=(4, 1))
-    delayed = Delayed("a-b", {})
-    rechunked = api.Rechunked(delayed, source=a, intermediate=None, target=b)
+    rechunked = api.Rechunked(None, None, source=a, intermediate=None, target=b)
     assert "Intermediate" not in repr(rechunked)
     rechunked._repr_html_()
 
@@ -223,7 +229,5 @@ def test_no_intermediate_fused(tmp_path):
 
     rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store)
 
-    num_tasks = len(
-        [v for v in rechunked._delayed.dask.values() if dask.core.istask(v)]
-    )
+    num_tasks = len([v for v in rechunked.plan.dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse

@@ -6,7 +6,22 @@ import dask.array
 from dask.delayed import Delayed
 from dask.optimization import fuse
 
-from rechunker.types import CopySpec, StagedCopySpec
+from rechunker.types import CopySpec, StagedCopySpec, Executor
+
+
+class DaskExecutor(Executor[Delayed]):
+    """An execution engine based on dask.
+
+    Supports zarr and dask arrays as inputs. Outputs must be zarr arrays.
+
+    Execution plans for DaskExecutors are dask.delayed objects.
+    """
+
+    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> Delayed:
+        return _staged_copy(specs)
+
+    def execute_plan(self, plan: Delayed, **kwargs):
+        return plan.compute(**kwargs)
 
 
 def _direct_copy_array(copy_spec: CopySpec) -> Delayed:
@@ -74,9 +89,9 @@ def _barrier(*args):
     return None
 
 
-def staged_copy(staged_copy_specs: Iterable[StagedCopySpec],) -> Delayed:
+def _staged_copy(specs: Iterable[StagedCopySpec],) -> Delayed:
 
-    stores_delayed = [_staged_array_copy(spec) for spec in staged_copy_specs]
+    stores_delayed = [_staged_array_copy(spec) for spec in specs]
 
     if len(stores_delayed) == 1:
         return stores_delayed[0]

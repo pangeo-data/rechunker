@@ -1,4 +1,5 @@
-from typing import Any, Iterable, NamedTuple, Tuple
+"""Types definitions used by executors."""
+from typing import Any, Generic, Iterable, NamedTuple, Tuple, TypeVar
 
 import zarr
 
@@ -18,3 +19,22 @@ class StagedCopySpec:
 
     def __init__(self, stages: Iterable[CopySpec]):
         self.stages = tuple(stages)
+
+
+T = TypeVar("T")
+
+
+class Executor(Generic[T]):
+    """Base class for execution engines.
+
+    Executors prepare and execute scheduling plans, in whatever form is most
+    convenient for users of that executor.
+    """
+
+    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> T:
+        """Convert copy specifications into a plan."""
+        raise NotImplementedError
+
+    def execute_plan(self, plan: T, **kwargs):
+        """Execute a plan."""
+        raise NotImplementedError

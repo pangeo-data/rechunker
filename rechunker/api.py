@@ -1,13 +1,13 @@
 """User-facing functions."""
 import html
 import textwrap
+from typing import Union
 
 import zarr
 import dask
 
 from rechunker.algorithm import rechunking_plan
-import rechunker.dask
-from rechunker.types import CopySpec, StagedCopySpec
+from rechunker.types import CopySpec, StagedCopySpec, Executor
 
 
 class Rechunked:
@@ -37,11 +37,20 @@ class Rechunked:
     <zarr.core.Array (4, 4) float64>
     """
 
-    def __init__(self, delayed, source, intermediate, target):
-        self._delayed = delayed
+    def __init__(self, executor, plan, source, intermediate, target):
+        self._executor = executor
+        self._plan = plan
         self._source = source
         self._intermediate = intermediate
         self._target = target
+
+    @property
+    def plan(self):
+        """Returns the executor-specific scheduling plan.
+
+        The type of this object depends on the underlying execution engine.
+        """
+        return self._plan
 
     def execute(self, **kwargs):
         """
@@ -64,7 +73,7 @@ class Rechunked:
         The same type of the ``source_array`` originally provided to
         :func:`rechunker.rechunk`.
         """
-        self._delayed.compute(**kwargs)
+        self._executor.execute_plan(self._plan, **kwargs)
         return self._target
 
     def __repr__(self):
@@ -145,14 +154,27 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
         return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
 
 
+def _get_executor(name: str) -> Executor:
+    if name.lower() == "dask":
+        from rechunker.executors.dask import DaskExecutor
+
+        return DaskExecutor()
+    elif name.lower() == "python":
+        from rechunker.executors.python import PythonExecutor
+
+        return PythonExecutor()
+    else:
+        raise ValueError(f"unrecognized executor {name}")
+
+
 def rechunk(
     source,
     target_chunks,
     max_mem,
     target_store,
     temp_store=None,
-    staged_copy=rechunker.dask.staged_copy,
-):
+    executor: Union[str, Executor] = "dask",
+) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, or a Dask Array
 
@@ -187,18 +209,20 @@ def rechunk(
     temp_store : str, MutableMapping, or zarr.Store object, optional
         Location of temporary store for intermediate data. Can be deleted
         once rechunking is complete.
-    staged_copy: function
-        Implementation of copying between zarr arrays.
+    executor: str or rechunker.types.Executor
+        Implementation of the execution engine for copying between zarr arrays.
 
     Returns
     -------
     rechunked : :class:`Rechunked` object
     """
+    if isinstance(executor, str):
+        executor = _get_executor(executor)
     copy_specs, intermediate, target = _setup_rechunk(
         source, target_chunks, max_mem, target_store, temp_store
     )
-    delayed = staged_copy(copy_specs)
-    return Rechunked(delayed, source, intermediate, target)
+    plan = executor.prepare_plan(copy_specs)
+    return Rechunked(executor, plan, source, intermediate, target)
 
 
 def _setup_rechunk(
