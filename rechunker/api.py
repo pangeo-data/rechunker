@@ -204,6 +204,9 @@ def rechunk(
         once rechunking is complete.
     executor: str or rechunker.types.Executor
         Implementation of the execution engine for copying between zarr arrays.
+        Supplying a custom Executor is currently even more experimental than the
+        rest of Rechunker: we expect the interface to evolve as we add more
+        executors and make no guarantees of backwards compatibility.
 
     Returns
     -------

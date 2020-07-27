@@ -1,7 +1,9 @@
 """Types definitions used by executors."""
 from typing import Any, Generic, Iterable, NamedTuple, Tuple, TypeVar
 
-import zarr
+
+ReadableArray = Any
+WriteableArray = Any
 
 
 class CopySpec(NamedTuple):
@@ -9,12 +11,19 @@ class CopySpec(NamedTuple):
 
     # TODO: remove Any by making CopySpec a Generic, once we only support Python
     # 3.7+: https://stackoverflow.com/questions/50530959
-    source: Any
-    target: zarr.Array
+    source: ReadableArray
+    target: WriteableArray
     chunks: Tuple[int, ...]
 
 
 class StagedCopySpec:
+    """Specification of a copying process involving intermediate arrays.
+
+    The stages in a staged copy process must be completed in order. The
+    ``target`` of each stage corresponds to the ``source`` of the following
+    stage.
+    """
+
     stages: Tuple[CopySpec, ...]
 
     def __init__(self, stages: Iterable[CopySpec]):
