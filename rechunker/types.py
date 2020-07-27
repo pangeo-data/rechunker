@@ -18,8 +18,8 @@ class StagedCopySpec:
     """Specification of a copying process involving intermediate arrays.
 
     The stages in a staged copy process must be completed in order. The
-    ``target`` of each stage corresponds to the ``source`` of the following
-    stage.
+    ``target`` of each stage can be assumed to correspond to the ``source`` of
+    the following stage.
     """
 
     stages: Tuple[CopySpec, ...]
