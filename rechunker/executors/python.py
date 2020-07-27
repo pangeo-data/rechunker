@@ -2,15 +2,17 @@ import itertools
 from functools import partial
 import math
 
-from typing import Any, Callable, Iterable
+from typing import Callable, Iterable
 
 from rechunker.types import CopySpec, StagedCopySpec, Executor
 
 
-Thunk = Callable[[], None]
+# PythonExecutor represents delayed execution tasks as functions that require
+# no arguments.
+Task = Callable[[], None]
 
 
-class PythonExecutor(Executor[Thunk]):
+class PythonExecutor(Executor[Task]):
     """An execution engine based on Python loops.
 
     Supports copying between any arrays that implement ``__getitem__`` and
@@ -19,14 +21,14 @@ class PythonExecutor(Executor[Thunk]):
     Execution plans for PythonExecutor are functions that accept no arguments.
     """
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> Thunk:
+    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> Task:
         tasks = []
         for staged_copy_spec in specs:
             for copy_spec in staged_copy_spec.stages:
                 tasks.append(partial(_direct_copy_array, copy_spec))
         return partial(_execute_all, tasks)
 
-    def execute_plan(self, plan: Thunk):
+    def execute_plan(self, plan: Task):
         plan()
 
 
@@ -40,6 +42,6 @@ def _direct_copy_array(copy_spec: CopySpec) -> None:
         target_array[key] = source_array[key]
 
 
-def _execute_all(tasks: Iterable[Callable[[], Any]]) -> None:
+def _execute_all(tasks: Iterable[Task]) -> None:
     for task in tasks:
         task()
