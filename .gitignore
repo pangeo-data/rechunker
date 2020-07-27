@@ -1,5 +1,6 @@
 __pycache__
 *.egg-info
 .hypothesis
+.vscode/
 build/
 dist/
