@@ -152,6 +152,10 @@ def _get_executor(name: str) -> Executor:
         from rechunker.executors.dask import DaskExecutor
 
         return DaskExecutor()
+    elif name.lower() == "beam":
+        from rechunker.executors.beam import BeamExecutor
+
+        return BeamExecutor()
     elif name.lower() == "python":
         from rechunker.executors.python import PythonExecutor
 

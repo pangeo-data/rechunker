@@ -1,3 +1,5 @@
+from functools import partial
+import importlib
 import pytest
 
 import zarr
@@ -11,6 +13,20 @@ from rechunker import api
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
 
+def requires_import(module, *args):
+    try:
+        importlib.import_module(module)
+    except ImportError:
+        skip = True
+    else:
+        skip = False
+    mark = pytest.mark.skipif(skip, reason=f"requires {module}")
+    return pytest.param(*args, marks=mark)
+
+
+requires_beam = partial(requires_import, "apache_beam")
+
+
 @pytest.fixture(params=[(8000, 200), {"y": 8000, "x": 200}])
 def target_chunks(request):
     return request.param
@@ -21,7 +37,7 @@ def target_chunks(request):
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
-    "executor", ["dask", "python"],
+    "executor", ["dask", "python", requires_beam("beam")],
 )
 @pytest.mark.parametrize(
     "dims,target_chunks",
@@ -113,7 +129,10 @@ def test_rechunk_dask_array(
     assert dsa.equal(a_tar, 1).all().compute()
 
 
-def test_rechunk_group(tmp_path):
+@pytest.mark.parametrize(
+    "executor", ["dask", "python", requires_beam("beam")],
+)
+def test_rechunk_group(tmp_path, executor):
     store_source = str(tmp_path / "source.zarr")
     group = zarr.group(store_source)
     group.attrs["foo"] = "bar"
@@ -130,7 +149,12 @@ def test_rechunk_group(tmp_path):
     target_chunks = {"a": (5, 10, 4), "b": (20,)}
 
     rechunked = api.rechunk(
-        group, target_chunks, max_mem, target_store, temp_store=temp_store
+        group,
+        target_chunks,
+        max_mem,
+        target_store,
+        temp_store=temp_store,
+        executor=executor,
     )
     assert isinstance(rechunked, api.Rechunked)
 
