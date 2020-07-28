@@ -60,6 +60,7 @@ class _Stage(beam.PTransform):
             pcoll
             | "Start" >> beam.FlatMapTuple(start_fn)
             | "CreateTasks" >> beam.FlatMapTuple(_copy_tasks)
+            | "Reshuffle" >> beam.Reshuffle()  # prevent undesirable fusion
             | "CopyChunks" >> beam.MapTuple(_copy_chunk)
             | "Finish" >> beam.GroupByKey()
         )
