@@ -1,12 +1,17 @@
 from functools import partial
-import itertools
-import math
 import uuid
 from typing import Any, Iterable, Optional, Mapping, Tuple
 
 import apache_beam as beam
 
-from rechunker.types import CopySpec, StagedCopySpec, Executor
+from rechunker.executors.util import chunk_keys
+from rechunker.types import (
+    CopySpec,
+    StagedCopySpec,
+    Executor,
+    ReadableArray,
+    WriteableArray,
+)
 
 
 class BeamExecutor(Executor[beam.PTransform]):
@@ -39,56 +44,57 @@ class _Rechunker(beam.PTransform):
         max_depth = max(len(spec.stages) for spec in self.specs)
         specs_map = {uuid.uuid1().hex: spec for spec in self.specs}
 
-        pcoll = pcoll | "Create" >> beam.Create([(k, None) for k in specs_map])
+        # we explicitly thread target_id through each stage to ensure that they
+        # are executed in order
+        pcoll = pcoll | "Create" >> beam.Create(specs_map.keys())
         for stage in range(max_depth):
             specs_by_target = {
                 k: v.stages[stage] if stage < len(v.stages) else None
                 for k, v in specs_map.items()
             }
-            pcoll = pcoll | f"Stage{stage}" >> _Stage(specs_by_target)
+            pcoll = pcoll | f"Stage{stage}" >> _CopyStage(specs_by_target)
         return pcoll
 
 
-class _Stage(beam.PTransform):
+class _CopyStage(beam.PTransform):
     def __init__(self, specs_by_target: Mapping[str, CopySpec]):
         super().__init__()
         self.specs_by_target = specs_by_target
 
     def expand(self, pcoll):
-        start_fn = partial(_start_stage, self.specs_by_target)
         return (
             pcoll
-            | "Start" >> beam.FlatMapTuple(start_fn)
+            | "Start" >> beam.FlatMap(_start_stage, self.specs_by_target)
             | "CreateTasks" >> beam.FlatMapTuple(_copy_tasks)
             # prevent undesirable fusion
             # https://stackoverflow.com/a/54131856/809705
             | "Reshuffle" >> beam.Reshuffle()
             | "CopyChunks" >> beam.MapTuple(_copy_chunk)
-            | "Finish" >> beam.GroupByKey()
+            # prepare inputs for the next stage (if any)
+            | "Finish" >> beam.Distinct()
         )
 
 
 def _start_stage(
-    specs_by_target_id: Mapping[str, Optional[CopySpec]],
-    target_id: str,
-    unused_value: Any,
+    target_id: str, specs_by_target: Mapping[str, Optional[CopySpec]],
 ) -> Tuple[str, CopySpec]:
-    spec = specs_by_target_id[target_id]
+    spec = specs_by_target[target_id]
     if spec is not None:
         yield target_id, spec
 
 
-def _copy_tasks(target_id: str, spec: CopySpec):
-    for key in _chunked_keys(spec.source.shape, spec.chunks):
+def _copy_tasks(
+    target_id: str, spec: CopySpec
+) -> Tuple[str, Tuple[slice, ...], ReadableArray, WriteableArray]:
+    for key in chunk_keys(spec.source.shape, spec.chunks):
         yield target_id, key, spec.source, spec.target
 
 
-def _chunked_keys(shape: Tuple[int, ...], chunks: Tuple[int, ...]) -> Tuple[slice, ...]:
-    ranges = [range(math.ceil(s / c)) for s, c in zip(shape, chunks)]
-    for indices in itertools.product(*ranges):
-        yield tuple(slice(c * i, c * (i + 1)) for i, c in zip(indices, chunks))
-
-
-def _copy_chunk(target_id, key, source, target):
+def _copy_chunk(
+    target_id: str,
+    key: Tuple[slice, ...],
+    source: ReadableArray,
+    target: WriteableArray,
+) -> str:
     target[key] = source[key]
-    return (target_id, None)
+    return target_id
