@@ -1,6 +1,5 @@
-from functools import partial
 import uuid
-from typing import Any, Iterable, Optional, Mapping, Tuple
+from typing import Iterable, Optional, Mapping, Tuple
 
 import apache_beam as beam
 
