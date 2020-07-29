@@ -25,6 +25,7 @@ class BeamExecutor(Executor[beam.PTransform]):
 
     # TODO: explore adding an option to do rechunking with Beam groupby
     # operations instead of explicitly writing intermediate arrays to disk.
+    # This would offer a cleaner API and would perhaps be faster, too.
 
     def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> beam.PTransform:
         return "Rechunker" >> _Rechunker(specs)
@@ -45,6 +46,9 @@ class _Rechunker(beam.PTransform):
 
         # we explicitly thread target_id through each stage to ensure that they
         # are executed in order
+        # TODO: consider refactoring to use Beam's ``Source`` API for improved
+        # performance:
+        # https://beam.apache.org/documentation/io/developing-io-overview/
         pcoll = pcoll | "Create" >> beam.Create(specs_map.keys())
         for stage in range(max_depth):
             specs_by_target = {
