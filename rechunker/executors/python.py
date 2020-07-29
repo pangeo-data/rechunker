@@ -1,10 +1,9 @@
-import itertools
 from functools import partial
-import math
 
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Tuple
 
-from rechunker.types import CopySpec, StagedCopySpec, Executor
+from rechunker.executors.util import chunk_keys
+from rechunker.types import StagedCopySpec, Executor, ReadableArray, WriteableArray
 
 
 # PythonExecutor represents delayed execution tasks as functions that require
@@ -25,21 +24,19 @@ class PythonExecutor(Executor[Task]):
         tasks = []
         for staged_copy_spec in specs:
             for copy_spec in staged_copy_spec.stages:
-                tasks.append(partial(_direct_copy_array, copy_spec))
+                tasks.append(partial(_direct_copy_array, *copy_spec))
         return partial(_execute_all, tasks)
 
     def execute_plan(self, plan: Task):
         plan()
 
 
-def _direct_copy_array(copy_spec: CopySpec) -> None:
+def _direct_copy_array(
+    source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
+) -> None:
     """Direct copy between zarr arrays."""
-    source_array, target_array, chunks = copy_spec
-    shape = source_array.shape
-    ranges = [range(math.ceil(s / c)) for s, c in zip(shape, chunks)]
-    for indices in itertools.product(*ranges):
-        key = tuple(slice(c * i, c * (i + 1)) for i, c in zip(indices, chunks))
-        target_array[key] = source_array[key]
+    for key in chunk_keys(source.shape, chunks):
+        target[key] = source[key]
 
 
 def _execute_all(tasks: Iterable[Task]) -> None:
