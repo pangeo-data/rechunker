@@ -40,6 +40,7 @@ def _make_flow(specs: Iterable[StagedCopySpec]) -> prefect.Flow:
         # iterate over different arrays in the group
         for staged_copy_spec in specs:
             copy_tasks = []
+            # iterate over the different stages of the array copying
             for source, target, chunks in staged_copy_spec.stages:
                 keys = list(chunk_keys(source.shape, chunks))
                 copy_task = _copy_chunk.map(
