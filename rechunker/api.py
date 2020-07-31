@@ -5,6 +5,7 @@ from typing import Union
 
 import zarr
 import dask
+import dask.array
 
 from rechunker.algorithm import rechunking_plan
 from rechunker.types import CopySpec, StagedCopySpec, Executor
