@@ -156,6 +156,10 @@ def _get_executor(name: str) -> Executor:
         from rechunker.executors.beam import BeamExecutor
 
         return BeamExecutor()
+    elif name.lower() == "prefect":
+        from rechunker.executors.prefect import PrefectExecutor
+
+        return PrefectExecutor()
     elif name.lower() == "python":
         from rechunker.executors.python import PythonExecutor
 
