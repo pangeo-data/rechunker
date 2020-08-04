@@ -131,7 +131,7 @@ def test_rechunk_dask_array(
 
 
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam")],
+    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect")],
 )
 def test_rechunk_group(tmp_path, executor):
     store_source = str(tmp_path / "source.zarr")
