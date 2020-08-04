@@ -1,7 +1,9 @@
 import itertools
 import math
 
-from typing import Iterator, Tuple
+from typing import Iterator, NamedTuple, Tuple
+
+from rechunker.types import CopySpec, ReadableArray, WriteableArray
 
 
 def chunk_keys(
@@ -18,4 +20,25 @@ def chunk_keys(
     for indices in itertools.product(*ranges):
         yield tuple(
             slice(c * i, min(c * (i + 1), s)) for i, s, c in zip(indices, shape, chunks)
+        )
+
+
+class DirectCopySpec(NamedTuple):
+    """Specification of how to directly copy between two arrays."""
+
+    source: ReadableArray
+    target: WriteableArray
+    chunks: Tuple[int, ...]
+
+
+def split_into_direct_copies(spec: CopySpec) -> Tuple[DirectCopySpec]:
+    """Convert a rechunked copy into a list of direct copies."""
+    if spec.intermediate.array is None:
+        return (DirectCopySpec(spec.read.array, spec.write.array, spec.read.chunks,),)
+    else:
+        return (
+            DirectCopySpec(spec.read.array, spec.intermediate.array, spec.read.chunks,),
+            DirectCopySpec(
+                spec.intermediate.array, spec.write.array, spec.write.chunks,
+            ),
         )

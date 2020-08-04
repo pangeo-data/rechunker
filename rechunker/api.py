@@ -8,7 +8,7 @@ import dask
 import dask.array
 
 from rechunker.algorithm import rechunking_plan
-from rechunker.types import CopySpec, StagedCopySpec, Executor
+from rechunker.types import ArrayProxy, CopySpec, Executor
 
 
 class Rechunked:
@@ -223,10 +223,10 @@ def rechunk(
     """
     if isinstance(executor, str):
         executor = _get_executor(executor)
-    copy_specs, intermediate, target = _setup_rechunk(
+    copy_spec, intermediate, target = _setup_rechunk(
         source, target_chunks, max_mem, target_store, temp_store
     )
-    plan = executor.prepare_plan(copy_specs)
+    plan = executor.prepare_plan(copy_spec)
     return Rechunked(executor, plan, source, intermediate, target)
 
 
@@ -269,10 +269,8 @@ def _setup_rechunk(
             target_store,
             temp_store_or_group=temp_store,
         )
-        intermediate = (
-            copy_spec.stages[0].target if len(copy_spec.stages) == 2 else None
-        )
-        target = copy_spec.stages[-1].target
+        intermediate = copy_spec.intermediate.array
+        target = copy_spec.write.array
         return [copy_spec], intermediate, target
 
     else:
@@ -286,7 +284,7 @@ def _setup_array_rechunk(
     target_store_or_group,
     temp_store_or_group=None,
     name=None,
-) -> StagedCopySpec:
+) -> CopySpec:
     shape = source_array.shape
     source_chunks = (
         source_array.chunksize
@@ -339,16 +337,15 @@ def _setup_array_rechunk(
         pass
 
     if read_chunks == write_chunks:
-        return StagedCopySpec([CopySpec(source_array, target_array, read_chunks)])
+        int_array = None
     else:
         # do intermediate store
         assert temp_store_or_group is not None
         int_array = _zarr_empty(
             shape, temp_store_or_group, int_chunks, dtype, name=name
         )
-        return StagedCopySpec(
-            [
-                CopySpec(source_array, int_array, read_chunks),
-                CopySpec(int_array, target_array, write_chunks),
-            ]
-        )
+
+    read_proxy = ArrayProxy(source_array, read_chunks)
+    int_proxy = ArrayProxy(int_array, int_chunks)
+    write_proxy = ArrayProxy(target_array, write_chunks)
+    return CopySpec(read_proxy, int_proxy, write_proxy)
