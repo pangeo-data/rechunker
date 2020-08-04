@@ -4,11 +4,12 @@ import prefect
 
 from rechunker.executors.util import chunk_keys
 from rechunker.types import (
-    StagedCopySpec,
+    CopySpec,
     Executor,
     ReadableArray,
     WriteableArray,
 )
+from rechunker.utils import split_into_direct_copies
 
 
 class PrefectExecutor(Executor[prefect.Flow]):
@@ -16,12 +17,12 @@ class PrefectExecutor(Executor[prefect.Flow]):
 
     Supports copying between any arrays that implement ``__getitem__`` and
     ``__setitem__`` for tuples of ``slice`` objects. Array must also be
-    serializable by Beam (i.e., with pickle).
+    serializable by Prefect (i.e., with pickle).
 
     Execution plans for PrefectExecutor are prefect.Flow objects.
     """
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> prefect.Flow:
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> prefect.Flow:
         return _make_flow(specs)
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
@@ -35,13 +36,13 @@ def _copy_chunk(
     target[key] = source[key]
 
 
-def _make_flow(specs: Iterable[StagedCopySpec]) -> prefect.Flow:
+def _make_flow(specs: Iterable[CopySpec]) -> prefect.Flow:
     with prefect.Flow("Rechunker") as flow:
         # iterate over different arrays in the group
-        for staged_copy_spec in specs:
+        for spec in specs:
             copy_tasks = []
             # iterate over the different stages of the array copying
-            for source, target, chunks in staged_copy_spec.stages:
+            for (source, target, chunks) in split_into_direct_copies(spec):
                 keys = list(chunk_keys(source.shape, chunks))
                 copy_task = _copy_chunk.map(
                     prefect.unmapped(source), prefect.unmapped(target), keys
