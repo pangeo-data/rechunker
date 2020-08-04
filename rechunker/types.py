@@ -1,31 +1,50 @@
 """Types definitions used by executors."""
-from typing import Any, Generic, Iterable, NamedTuple, Tuple, TypeVar
+from typing import Any, Generic, Iterable, NamedTuple, Optional, Tuple, TypeVar
 
-
+# TODO: replace with Protocols, once Python 3.8+ is required
+Array = Any
 ReadableArray = Any
 WriteableArray = Any
 
 
-class CopySpec(NamedTuple):
-    """Specifcation of how to copy between two arrays."""
+class ArrayProxy(NamedTuple):
+    """Representation of a chunked array for reads and writes.
 
-    source: ReadableArray
-    target: WriteableArray
+    Attributes
+    ----------
+    array : array or None
+        If ``array`` is None, it represents an array without any on-disk
+        representation. Otherwise ``array`` should be an explicit array to read
+        and/or write to.
+    chunks : tuple
+        Chunks to use when reading/writing from this array. If ``array`` is
+        chunked, ``array.chunks`` will always even divide ``chunks``.
+    """
+
+    array: Optional[Array]
     chunks: Tuple[int, ...]
 
 
-class StagedCopySpec:
-    """Specification of a copying process involving intermediate arrays.
+class CopySpec(NamedTuple):
+    """Specification for how to rechunk an array using a single intermediate.
 
-    The stages in a staged copy process must be completed in order. The
-    ``target`` of each stage can be assumed to correspond to the ``source`` of
-    the following stage.
+    Attributes
+    ----------
+    read : ArrayProxy
+        Read proxy with an ``array`` attribute that supports ``__getitem__``.
+    intermediate : ArrayProxy
+        Intermediate proxy with either an ``array`` that is either ``None``
+        (no intermediate storage on disk) or that supports both ``__getitem__``
+        and ``__setitem__``. The ``chunks`` on intermediates are technically
+        redundant (they the elementwise minimum of the read and write chunks)
+        but they are provided for convenience.
+    write : ArrayProxy
+        Write proxy with an ``array`` attribute that supports ``__setitem__``.
     """
 
-    stages: Tuple[CopySpec, ...]
-
-    def __init__(self, stages: Iterable[CopySpec]):
-        self.stages = tuple(stages)
+    read: ArrayProxy
+    intermediate: ArrayProxy
+    write: ArrayProxy
 
 
 T = TypeVar("T")
@@ -38,7 +57,10 @@ class Executor(Generic[T]):
     convenient for users of that executor.
     """
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> T:
+    # TODO: add support for multi-stage copying plans (in the form of a new,
+    # dedicated method)
+
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         """Convert copy specifications into a plan."""
         raise NotImplementedError
 

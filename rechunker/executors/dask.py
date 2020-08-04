@@ -1,12 +1,12 @@
 import uuid
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import dask
 import dask.array
 from dask.delayed import Delayed
 from dask.optimization import fuse
 
-from rechunker.types import CopySpec, StagedCopySpec, Executor
+from rechunker.types import Array, CopySpec, Executor
 
 
 class DaskExecutor(Executor[Delayed]):
@@ -17,31 +17,33 @@ class DaskExecutor(Executor[Delayed]):
     Execution plans for DaskExecutors are dask.delayed objects.
     """
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> Delayed:
-        return _staged_copy(specs)
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> Delayed:
+        return _copy_all(specs)
 
     def execute_plan(self, plan: Delayed, **kwargs):
         return plan.compute(**kwargs)
 
 
-def _direct_copy_array(copy_spec: CopySpec) -> Delayed:
-    """Direct copy between zarr arrays."""
-    source_array, target_array, chunks = copy_spec
-    if isinstance(source_array, dask.array.Array):
-        source_read = source_array
+def _direct_array_copy(
+    source: Array, target: Array, chunks: Tuple[int, ...]
+) -> Delayed:
+    """Direct copy between arrays."""
+    if isinstance(source, dask.array.Array):
+        source_read = source
     else:
-        source_read = dask.array.from_zarr(source_array, chunks=chunks)
+        source_read = dask.array.from_zarr(source, chunks=chunks)
     target_store_delayed = dask.array.store(
-        source_read, target_array, lock=False, compute=False
+        source_read, target, lock=False, compute=False
     )
     return target_store_delayed
 
 
-def _staged_array_copy(staged_copy_spec: StagedCopySpec) -> Delayed:
-    """Staged copy between zarr arrays."""
-    if len(staged_copy_spec.stages) == 1:
-        (copy_spec,) = staged_copy_spec.stages
-        target_store_delayed = _direct_copy_array(copy_spec)
+def _chunked_array_copy(spec: CopySpec) -> Delayed:
+    """Chunked copy between arrays."""
+    if spec.intermediate.array is None:
+        target_store_delayed = _direct_array_copy(
+            spec.read.array, spec.write.array, spec.read.chunks,
+        )
 
         # fuse
         target_dsk = dask.utils.ensure_dict(target_store_delayed.dask)
@@ -49,12 +51,14 @@ def _staged_array_copy(staged_copy_spec: StagedCopySpec) -> Delayed:
 
         return Delayed(target_store_delayed.key, dsk_fused)
 
-    elif len(staged_copy_spec.stages) == 2:
-        first_copy, second_copy = staged_copy_spec.stages
-
+    else:
         # do intermediate store
-        int_store_delayed = _direct_copy_array(first_copy)
-        target_store_delayed = _direct_copy_array(second_copy)
+        int_store_delayed = _direct_array_copy(
+            spec.read.array, spec.intermediate.array, spec.read.chunks,
+        )
+        target_store_delayed = _direct_array_copy(
+            spec.intermediate.array, spec.write.array, spec.write.chunks,
+        )
 
         # now do some hacking to chain these together into a single graph.
         # get the two graphs as dicts
@@ -81,17 +85,15 @@ def _staged_array_copy(staged_copy_spec: StagedCopySpec) -> Delayed:
         # fuse
         dsk_fused, _ = fuse(target_dsk)
         return Delayed(target_store_delayed.key, dsk_fused)
-    else:
-        raise NotImplementedError
 
 
 def _barrier(*args):
     return None
 
 
-def _staged_copy(specs: Iterable[StagedCopySpec],) -> Delayed:
+def _copy_all(specs: Iterable[CopySpec],) -> Delayed:
 
-    stores_delayed = [_staged_array_copy(spec) for spec in specs]
+    stores_delayed = [_chunked_array_copy(spec) for spec in specs]
 
     if len(stores_delayed) == 1:
         return stores_delayed[0]

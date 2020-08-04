@@ -1,16 +1,14 @@
 import uuid
-from typing import Iterable, Optional, Mapping, Tuple
+from typing import Iterable, Mapping, Tuple
 
 import apache_beam as beam
 
-from rechunker.executors.util import chunk_keys
-from rechunker.types import (
-    CopySpec,
-    StagedCopySpec,
-    Executor,
-    ReadableArray,
-    WriteableArray,
+from rechunker.executors.util import (
+    DirectCopySpec,
+    chunk_keys,
+    split_into_direct_copies,
 )
+from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 
 class BeamExecutor(Executor[beam.PTransform]):
@@ -27,7 +25,7 @@ class BeamExecutor(Executor[beam.PTransform]):
     # operations instead of explicitly writing intermediate arrays to disk.
     # This would offer a cleaner API and would perhaps be faster, too.
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> beam.PTransform:
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> beam.PTransform:
         return "Rechunker" >> _Rechunker(specs)
 
     def execute_plan(self, plan: beam.PTransform, **kwargs):
@@ -36,13 +34,13 @@ class BeamExecutor(Executor[beam.PTransform]):
 
 
 class _Rechunker(beam.PTransform):
-    def __init__(self, specs: Iterable[StagedCopySpec]):
+    def __init__(self, specs: Iterable[CopySpec]):
         super().__init__()
-        self.specs = tuple(specs)
+        self.direct_specs = tuple(map(split_into_direct_copies, specs))
 
     def expand(self, pcoll):
-        max_depth = max(len(spec.stages) for spec in self.specs)
-        specs_map = {uuid.uuid1().hex: spec for spec in self.specs}
+        max_depth = max(len(copies) for copies in self.direct_specs)
+        specs_map = {uuid.uuid1().hex: copies for copies in self.direct_specs}
 
         # we explicitly thread target_id through each stage to ensure that they
         # are executed in order
@@ -52,15 +50,14 @@ class _Rechunker(beam.PTransform):
         pcoll = pcoll | "Create" >> beam.Create(specs_map.keys())
         for stage in range(max_depth):
             specs_by_target = {
-                k: v.stages[stage] if stage < len(v.stages) else None
-                for k, v in specs_map.items()
+                k: v[stage] if stage < len(v) else None for k, v in specs_map.items()
             }
             pcoll = pcoll | f"Stage{stage}" >> _CopyStage(specs_by_target)
         return pcoll
 
 
 class _CopyStage(beam.PTransform):
-    def __init__(self, specs_by_target: Mapping[str, CopySpec]):
+    def __init__(self, specs_by_target: Mapping[str, DirectCopySpec]):
         super().__init__()
         self.specs_by_target = specs_by_target
 
@@ -79,15 +76,15 @@ class _CopyStage(beam.PTransform):
 
 
 def _start_stage(
-    target_id: str, specs_by_target: Mapping[str, Optional[CopySpec]],
-) -> Tuple[str, CopySpec]:
-    spec = specs_by_target[target_id]
+    target_id: str, specs_by_target: Mapping[str, DirectCopySpec],
+) -> Tuple[str, DirectCopySpec]:
+    spec = specs_by_target.get(target_id)
     if spec is not None:
         yield target_id, spec
 
 
 def _copy_tasks(
-    target_id: str, spec: CopySpec
+    target_id: str, spec: DirectCopySpec
 ) -> Tuple[str, Tuple[slice, ...], ReadableArray, WriteableArray]:
     for key in chunk_keys(spec.source.shape, spec.chunks):
         yield target_id, key, spec.source, spec.target

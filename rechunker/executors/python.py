@@ -2,8 +2,8 @@ from functools import partial
 
 from typing import Callable, Iterable, Tuple
 
-from rechunker.executors.util import chunk_keys
-from rechunker.types import StagedCopySpec, Executor, ReadableArray, WriteableArray
+from rechunker.executors.util import chunk_keys, split_into_direct_copies
+from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 
 # PythonExecutor represents delayed execution tasks as functions that require
@@ -20,21 +20,21 @@ class PythonExecutor(Executor[Task]):
     Execution plans for PythonExecutor are functions that accept no arguments.
     """
 
-    def prepare_plan(self, specs: Iterable[StagedCopySpec]) -> Task:
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> Task:
         tasks = []
-        for staged_copy_spec in specs:
-            for copy_spec in staged_copy_spec.stages:
-                tasks.append(partial(_direct_copy_array, *copy_spec))
+        for spec in specs:
+            for direct_spec in split_into_direct_copies(spec):
+                tasks.append(partial(_direct_array_copy, *direct_spec))
         return partial(_execute_all, tasks)
 
     def execute_plan(self, plan: Task):
         plan()
 
 
-def _direct_copy_array(
+def _direct_array_copy(
     source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
 ) -> None:
-    """Direct copy between zarr arrays."""
+    """Direct copy between arrays."""
     for key in chunk_keys(source.shape, chunks):
         target[key] = source[key]
 
