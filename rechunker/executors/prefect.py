@@ -2,14 +2,13 @@ from typing import Iterable, Tuple
 
 import prefect
 
-from rechunker.executors.util import chunk_keys
+from rechunker.executors.util import chunk_keys, split_into_direct_copies
 from rechunker.types import (
     CopySpec,
     Executor,
     ReadableArray,
     WriteableArray,
 )
-from rechunker.utils import split_into_direct_copies
 
 
 class PrefectExecutor(Executor[prefect.Flow]):
