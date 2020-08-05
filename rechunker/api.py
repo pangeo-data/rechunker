@@ -5,6 +5,7 @@ from typing import Union
 
 import zarr
 import dask
+import dask.array
 
 from rechunker.algorithm import rechunking_plan
 from rechunker.types import ArrayProxy, CopySpec, Executor
@@ -156,6 +157,10 @@ def _get_executor(name: str) -> Executor:
         from rechunker.executors.beam import BeamExecutor
 
         return BeamExecutor()
+    elif name.lower() == "prefect":
+        from rechunker.executors.prefect import PrefectExecutor
+
+        return PrefectExecutor()
     elif name.lower() == "python":
         from rechunker.executors.python import PythonExecutor
 

@@ -25,6 +25,7 @@ def requires_import(module, *args):
 
 
 requires_beam = partial(requires_import, "apache_beam")
+requires_prefect = partial(requires_import, "prefect")
 
 
 @pytest.fixture(params=[(8000, 200), {"y": 8000, "x": 200}])
@@ -37,7 +38,7 @@ def target_chunks(request):
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam")],
+    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect")],
 )
 @pytest.mark.parametrize(
     "dims,target_chunks",
@@ -130,7 +131,7 @@ def test_rechunk_dask_array(
 
 
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam")],
+    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect")],
 )
 def test_rechunk_group(tmp_path, executor):
     store_source = str(tmp_path / "source.zarr")
