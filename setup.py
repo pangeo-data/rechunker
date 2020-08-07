@@ -21,7 +21,7 @@ doc_requires = [
 ]
 
 extras_require = {
-    "complete": install_requires + ["apache_beam", "pyyaml", "fsspec", "prefect"],
+    "complete": install_requires + ["apache_beam", "pyyaml", "fsspec", "prefect", "pywren_ibm_cloud"],
     "docs": doc_requires,
 }
 extras_require["dev"] = extras_require["complete"] + [

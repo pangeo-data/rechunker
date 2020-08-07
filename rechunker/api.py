@@ -165,6 +165,10 @@ def _get_executor(name: str) -> Executor:
         from rechunker.executors.python import PythonExecutor
 
         return PythonExecutor()
+    elif name.lower() == "pywren":
+        from rechunker.executors.pywren import PywrenExecutor
+
+        return PywrenExecutor()
     else:
         raise ValueError(f"unrecognized executor {name}")
 
