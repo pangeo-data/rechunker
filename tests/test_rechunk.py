@@ -39,7 +39,14 @@ def target_chunks(request):
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect"), requires_pywren("pywren")],
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
 )
 @pytest.mark.parametrize(
     "dims,target_chunks",
