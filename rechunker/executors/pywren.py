@@ -37,7 +37,10 @@ class PywrenExecutor(Executor[Task]):
     def execute_plan(self, plan: Task):
         if self.pywren_function_executor is None:
             # No Pywren function executor specified, so use a local one, and shutdown after use
-            with pywren.local_executor() as pywren_function_executor:
+            with pywren.local_executor(
+                # Minimal config needed to avoid Pywren error if ~/.pywren_config is missing
+                config={"pywren": {"storage_bucket": "unused"}}
+            ) as pywren_function_executor:
                 plan(pywren_function_executor)
         else:
             plan(self.pywren_function_executor)
