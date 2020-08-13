@@ -1,6 +1,7 @@
 import numpy as np
 from rechunker.util import prod
 
+
 def test_prod():
     assert prod(()) == 1
     assert prod((2,)) == 2
