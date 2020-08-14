@@ -1,5 +1,5 @@
 import numpy as np
-from rechunker.util import prod
+from rechunker.compat import prod
 
 
 def test_prod():

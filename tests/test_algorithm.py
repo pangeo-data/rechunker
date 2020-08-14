@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-try:
-    from math import prod  # Python 3.8
-except ImportError:
-    from rechunker.util import prod
+from rechunker.compat import prod
 
 import pytest
 from hypothesis import given, assume

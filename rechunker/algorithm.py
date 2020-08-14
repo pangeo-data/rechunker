@@ -1,10 +1,7 @@
 """Core rechunking algorithm stuff."""
 from typing import Sequence, Optional, List, Tuple
 
-try:
-    from math import prod  # Python 3.8
-except ImportError:
-    from rechunker.util import prod
+from rechunker.compat import prod
 
 
 def consolidate_chunks(
