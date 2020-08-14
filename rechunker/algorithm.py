@@ -1,13 +1,7 @@
 """Core rechunking algorithm stuff."""
 from typing import Sequence, Optional, List, Tuple
 
-try:
-    from math import prod
-
-    numpy_prod = False
-except ImportError:
-    numpy_prod = True
-    from numpy import prod
+from rechunker.compat import prod
 
 
 def consolidate_chunks(
@@ -119,10 +113,6 @@ def rechunking_plan(
 
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
-    if numpy_prod:
-        # Convert to Python type for JSON serialization
-        source_chunk_mem = source_chunk_mem.item()
-        target_chunk_mem = target_chunk_mem.item()
 
     if source_chunk_mem > max_mem:
         raise ValueError(

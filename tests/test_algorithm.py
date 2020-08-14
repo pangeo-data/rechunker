@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-try:
-    from math import prod
-except ImportError:
-    from numpy import prod
-
+from rechunker.compat import prod
 
 import pytest
 from hypothesis import given, assume
@@ -215,8 +211,6 @@ def shapes_chunks_maxmem_for_ndim(draw):
         shapes_chunks_maxmem(ndim=ndim, itemsize=4, max_len=10_000)
     )
     max_mem = min_mem * 10
-    # needed to handle overflows
-    assume(max_mem > 1)
     return shape, source_chunks, target_chunks, max_mem, itemsize
 
 
