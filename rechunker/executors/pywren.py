@@ -1,4 +1,3 @@
-import concurrent.futures
 from functools import partial
 
 from typing import Callable, Iterable, Tuple
@@ -36,8 +35,8 @@ class PywrenExecutor(Executor[Task]):
             for direct_spec in split_into_direct_copies(spec):
                 spec_tasks.append(partial(_direct_array_copy, *direct_spec))
             tasks.append(partial(_execute_in_series, spec_tasks))
-        # Tasks for different specs can be executed in parallel
-        return partial(_execute_in_parallel, tasks)
+        # TODO: execute tasks for different specs in parallel
+        return partial(_execute_in_series, tasks)
 
     def execute_plan(self, plan: Task):
         if self.pywren_function_executor is None:
@@ -77,12 +76,3 @@ def _execute_in_series(
 ) -> None:
     for task in tasks:
         task(pywren_function_executor)
-
-
-def _execute_in_parallel(
-    tasks: Iterable[Task], pywren_function_executor: FunctionExecutor
-) -> None:
-    with concurrent.futures.ThreadPoolExecutor() as tpexecutor:
-        futures = [tpexecutor.submit(task, pywren_function_executor) for task in tasks]
-        for _ in concurrent.futures.as_completed(futures):
-            pass
