@@ -26,6 +26,7 @@ def requires_import(module, *args):
 
 requires_beam = partial(requires_import, "apache_beam")
 requires_prefect = partial(requires_import, "prefect")
+requires_pywren = partial(requires_import, "pywren_ibm_cloud")
 
 
 @pytest.fixture(params=[(8000, 200), {"y": 8000, "x": 200}])
@@ -38,7 +39,14 @@ def target_chunks(request):
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect")],
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
 )
 @pytest.mark.parametrize(
     "dims,target_chunks",
@@ -131,7 +139,14 @@ def test_rechunk_dask_array(
 
 
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect")],
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
 )
 def test_rechunk_group(tmp_path, executor):
     store_source = str(tmp_path / "source.zarr")
@@ -256,3 +271,52 @@ def test_no_intermediate_fused(tmp_path):
 
     num_tasks = len([v for v in rechunked.plan.dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
+
+
+def test_pywren_function_executor(tmp_path):
+    pytest.importorskip("pywren_ibm_cloud")
+    from rechunker.executors.pywren import (
+        pywren_local_function_executor,
+        PywrenExecutor,
+    )
+
+    # Create a Pywren function exectutor that we manage ourselves
+    # and pass in to rechunker's PywrenExecutor
+    with pywren_local_function_executor() as function_executor:
+
+        executor = PywrenExecutor(function_executor)
+
+        shape = (8000, 8000)
+        source_chunks = (200, 8000)
+        dtype = "f4"
+        max_mem = 25600000
+        target_chunks = (400, 8000)
+
+        ### Create source array ###
+        store_source = str(tmp_path / "source.zarr")
+        source_array = zarr.ones(
+            shape, chunks=source_chunks, dtype=dtype, store=store_source
+        )
+
+        ### Create targets ###
+        target_store = str(tmp_path / "target.zarr")
+        temp_store = str(tmp_path / "temp.zarr")
+
+        rechunked = api.rechunk(
+            source_array,
+            target_chunks,
+            max_mem,
+            target_store,
+            temp_store=temp_store,
+            executor=executor,
+        )
+        assert isinstance(rechunked, api.Rechunked)
+
+        target_array = zarr.open(target_store)
+
+        assert target_array.chunks == tuple(target_chunks)
+
+        result = rechunked.execute()
+        assert isinstance(result, zarr.Array)
+        a_tar = dsa.from_zarr(target_array)
+        assert dsa.equal(a_tar, 1).all().compute()
