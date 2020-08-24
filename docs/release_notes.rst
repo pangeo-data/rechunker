@@ -1,7 +1,14 @@
 Release Notes
 =============
 
-v0.1 - Unreleased
+v0.2.0
+------
+
+- Added ``rechunker.executors`` for executing plans with other
+  backends like Apache Beam, prefect, and pywren. See :ref:`executors` for more.
+- Fixed overflow bug when computing the number of chunks needed for a memory target.
+
+v0.0.1
 -----------------
 
 - Documentation update and tutorial.
