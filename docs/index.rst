@@ -51,7 +51,9 @@ Contents
    tutorial
    api
    algorithm
+   executors
    release_notes
+   contributing
 
 
 .. _Zarr: https://zarr.readthedocs.io/en/stable/
