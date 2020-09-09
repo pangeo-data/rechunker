@@ -7,19 +7,17 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Build distributions for PyPI
-        steps:
-          - uses: actions/setup-python@v2
-          - name: Install dependencies
-            run: |
-              python -m pip install -U pip wheel setuptools twine
-              pip install .[dev]
-          - name: Build distributions
-              python setup.py sdist bdist_wheel
+      - uses: actions/setup-python@v2
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip wheel setuptools twine
+          pip install .[dev]
+      - name: Build distributions
+          python setup.py sdist bdist_wheel
 
-          - name: Publish a Python distribution to PyPI
-            if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-            uses: pypa/gh-action-pypi-publish@master
-            with:
-              user: tomaugspurger
-              password: ${{ secrets.pypi_token }}
+      - name: Publish to PyPI
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: tomaugspurger
+          password: ${{ secrets.pypi_token }}
