@@ -42,7 +42,9 @@ def _chunked_array_copy(spec: CopySpec) -> Delayed:
     """Chunked copy between arrays."""
     if spec.intermediate.array is None:
         target_store_delayed = _direct_array_copy(
-            spec.read.array, spec.write.array, spec.read.chunks,
+            spec.read.array,
+            spec.write.array,
+            spec.read.chunks,
         )
 
         # fuse
@@ -54,10 +56,14 @@ def _chunked_array_copy(spec: CopySpec) -> Delayed:
     else:
         # do intermediate store
         int_store_delayed = _direct_array_copy(
-            spec.read.array, spec.intermediate.array, spec.read.chunks,
+            spec.read.array,
+            spec.intermediate.array,
+            spec.read.chunks,
         )
         target_store_delayed = _direct_array_copy(
-            spec.intermediate.array, spec.write.array, spec.write.chunks,
+            spec.intermediate.array,
+            spec.write.array,
+            spec.write.chunks,
         )
 
         # now do some hacking to chain these together into a single graph.
@@ -91,7 +97,9 @@ def _barrier(*args):
     return None
 
 
-def _copy_all(specs: Iterable[CopySpec],) -> Delayed:
+def _copy_all(
+    specs: Iterable[CopySpec],
+) -> Delayed:
 
     stores_delayed = [_chunked_array_copy(spec) for spec in specs]
 
