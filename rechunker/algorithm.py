@@ -93,6 +93,8 @@ def rechunking_plan(
         Original chunk shape (must be in form (5, 10, 20), no irregular chunks)
     target_chunks : Tuple
         Target chunk shape (must be in form (5, 10, 20), no irregular chunks)
+    itemsize: int
+        Number of bytes used to represent a single array element
     max_mem : Int
         Maximum permissible chunk memory size, measured in units of itemsize
     consolidate_reads: bool, optional

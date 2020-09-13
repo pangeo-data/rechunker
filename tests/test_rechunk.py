@@ -2,6 +2,7 @@ from functools import partial
 import importlib
 import pytest
 
+from pathlib import Path
 import zarr
 import dask.array as dsa
 import dask
@@ -186,7 +187,7 @@ def test_rechunk_group(tmp_path, executor):
 
 
 @pytest.fixture(params=["Array", "Group"])
-def rechunked(tmp_path, request):
+def rechunked_fn(tmp_path, request):
     if request.param == "Group":
         store_source = str(tmp_path / "source.zarr")
         group = zarr.group(store_source)
@@ -194,17 +195,22 @@ def rechunked(tmp_path, request):
         # 800 byte chunks
         a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
         a.attrs["foo"] = "bar"
-        b = group.ones("b", shape=(20,), chunks=(10,), dtype="f4")
+        b = group.ones("b", shape=(8000,), chunks=(100,), dtype="f4")
         b.attrs["foo"] = "bar"
 
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
 
-        max_mem = 1600  # should force a two-step plan for a
-        target_chunks = {"a": (5, 10, 4), "b": (20,)}
+        max_mem = 16000  # should force a two-step plan for b
+        target_chunks = {"a": (5, 10, 4), "b": (4000,)}
 
-        rechunked = api.rechunk(
-            group, target_chunks, max_mem, target_store, temp_store=temp_store
+        rechunked_fn = partial(
+            api.rechunk,
+            group,
+            target_chunks,
+            max_mem,
+            target_store,
+            temp_store=temp_store,
         )
     else:
         shape = (8000, 8000)
@@ -227,10 +233,20 @@ def rechunked(tmp_path, request):
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
 
-        rechunked = api.rechunk(
-            source_array, target_chunks, max_mem, target_store, temp_store=temp_store
+        rechunked_fn = partial(
+            api.rechunk,
+            source_array,
+            target_chunks,
+            max_mem,
+            target_store,
+            temp_store=temp_store,
         )
-    return rechunked
+    return rechunked_fn
+
+
+@pytest.fixture()
+def rechunked(rechunked_fn):
+    return rechunked_fn()
 
 
 def test_repr(rechunked):
@@ -239,6 +255,37 @@ def test_repr(rechunked):
 
     assert repr_str.startswith("<Rechunked>")
     assert all(thing in repr_str for thing in ["Source", "Intermediate", "Target"])
+
+
+def test_rechunk_option_overwrite(rechunked_fn):
+    rechunked_fn().execute()
+    # TODO: make this match more reliable based on outcome of
+    # https://github.com/zarr-developers/zarr-python/issues/605
+    with pytest.raises(ValueError, match=r"path .* contains an array"):
+        rechunked_fn().execute()
+    rechunked = rechunked_fn(
+        temp_options=dict(overwrite=True), target_options=dict(overwrite=True)
+    )
+    rechunked.execute()
+
+
+def test_rechunk_option_compression(rechunked_fn):
+    def rechunk(compressor):
+        rechunked = rechunked_fn(
+            temp_options=dict(overwrite=True, compressor=compressor),
+            target_options=dict(overwrite=True, compressor=compressor),
+        )
+        rechunked.execute()
+        return sum(
+            file.stat().st_size
+            for file in Path(rechunked._target.store.path).rglob("*")
+        )
+
+    size_uncompressed = rechunk(None)
+    size_compressed = rechunk(
+        zarr.Blosc(cname="zstd", clevel=9, shuffle=zarr.Blosc.SHUFFLE)
+    )
+    assert size_compressed < size_uncompressed
 
 
 def test_repr_html(rechunked):
