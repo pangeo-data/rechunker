@@ -110,13 +110,7 @@ def test_rechunk_array(
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000])
 @pytest.mark.parametrize(
-    "target_chunks",
-    [
-        (200, 8000),
-        (800, 8000),
-        (8000, 200),
-        (400, 8000),
-    ],
+    "target_chunks", [(200, 8000), (800, 8000), (8000, 200), (400, 8000),],
 )
 def test_rechunk_dask_array(
     tmp_path, shape, source_chunks, dtype, target_chunks, max_mem

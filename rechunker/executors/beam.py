@@ -76,8 +76,7 @@ class _CopyStage(beam.PTransform):
 
 
 def _start_stage(
-    target_id: str,
-    specs_by_target: Mapping[str, DirectCopySpec],
+    target_id: str, specs_by_target: Mapping[str, DirectCopySpec],
 ) -> Iterator[Tuple[str, DirectCopySpec]]:
     spec = specs_by_target.get(target_id)
     if spec is not None:

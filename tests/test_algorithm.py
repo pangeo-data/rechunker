@@ -65,22 +65,13 @@ def test_consolidate_chunks_limit_error(shape, chunks, itemsize, max_mem, chunk_
 
 
 @pytest.mark.parametrize(
-    "shape",
-    [
-        (1000, 50, 1800, 3600),
-    ],
+    "shape", [(1000, 50, 1800, 3600),],
 )
 @pytest.mark.parametrize(
-    "chunks",
-    [
-        (1, 5, 1800, 3600),
-    ],
+    "chunks", [(1, 5, 1800, 3600),],
 )
 @pytest.mark.parametrize(
-    "itemsize",
-    [
-        4,
-    ],
+    "itemsize", [4,],
 )
 @pytest.mark.parametrize(
     "max_mem, expected",

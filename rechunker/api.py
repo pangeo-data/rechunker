@@ -235,11 +235,7 @@ def rechunk(
 
 
 def _setup_rechunk(
-    source,
-    target_chunks,
-    max_mem,
-    target_store,
-    temp_store=None,
+    source, target_chunks, max_mem, target_store, temp_store=None,
 ):
     if isinstance(source, zarr.hierarchy.Group):
         if not isinstance(target_chunks, dict):
