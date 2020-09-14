@@ -32,6 +32,7 @@ extras_require["dev"] = extras_require["complete"] + [
     "flake8",
     "black",
     "codecov",
+    "mypy",
 ]
 
 setup(
