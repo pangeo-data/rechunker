@@ -288,6 +288,18 @@ def test_rechunk_option_compression(rechunked_fn):
     assert size_compressed < size_uncompressed
 
 
+def test_rechunk_reserved_option(rechunked_fn):
+    for o in ["shape", "chunks", "dtype", "store", "name"]:
+        with pytest.raises(
+            ValueError, match=f"Optional array arguments must not include {o}"
+        ):
+            rechunked_fn(temp_options={o: True})
+        with pytest.raises(
+            ValueError, match=f"Optional array arguments must not include {o}"
+        ):
+            rechunked_fn(target_options={o: True})
+
+
 def test_repr_html(rechunked):
     rechunked._repr_html_()  # no exceptions
 

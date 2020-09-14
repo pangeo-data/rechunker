@@ -138,12 +138,6 @@ def _get_dims_from_zarr_array(z_array):
 
 
 def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
-    for k in ["shape", "chunks", "dtype", "store"]:
-        if k in kwargs:
-            raise ValueError(
-                f"Optional array arguments must not include {k} (provided {k}={kwargs[k]}). "
-                "Values for this property are managed internally."
-            )
     # wrapper that maybe creates the array within a group
     if name is not None:
         assert isinstance(store_or_group, zarr.hierarchy.Group)
@@ -317,6 +311,17 @@ def _setup_rechunk(
         raise ValueError("Source must be a Zarr Array or Group, or a Dask Array.")
 
 
+def _validation_options(options):
+    if not options:
+        return
+    for k in ["shape", "chunks", "dtype", "store", "name"]:
+        if k in options:
+            raise ValueError(
+                f"Optional array arguments must not include {k} (provided {k}={options[k]}). "
+                "Values for this property are managed internally."
+            )
+
+
 def _setup_array_rechunk(
     source_array,
     target_chunks,
@@ -327,6 +332,8 @@ def _setup_array_rechunk(
     temp_options=None,
     name=None,
 ) -> CopySpec:
+    _validation_options(target_options)
+    _validation_options(temp_options)
     shape = source_array.shape
     source_chunks = (
         source_array.chunksize
