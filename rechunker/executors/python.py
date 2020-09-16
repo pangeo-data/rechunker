@@ -27,7 +27,7 @@ class PythonExecutor(Executor[Task]):
                 tasks.append(partial(_direct_array_copy, *direct_spec))
         return partial(_execute_all, tasks)
 
-    def execute_plan(self, plan: Task):
+    def execute_plan(self, plan: Task, **kwargs):
         plan()
 
 

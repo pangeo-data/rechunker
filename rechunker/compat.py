@@ -6,7 +6,7 @@ from typing import Sequence
 def prod(iterable: Sequence[int]) -> int:
     """Implementation of `math.prod()` all Python versions."""
     try:
-        from math import prod as mathprod  # Python 3.8
+        from math import prod as mathprod  # type: ignore # Python 3.8
 
         return mathprod(iterable)
     except ImportError:

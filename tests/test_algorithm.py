@@ -64,9 +64,15 @@ def test_consolidate_chunks_limit_error(shape, chunks, itemsize, max_mem, chunk_
         consolidate_chunks(shape, chunks, itemsize, max_mem, chunk_limits=chunk_limits)
 
 
-@pytest.mark.parametrize("shape", [(1000, 50, 1800, 3600),])
-@pytest.mark.parametrize("chunks", [(1, 5, 1800, 3600),])
-@pytest.mark.parametrize("itemsize", [4,])
+@pytest.mark.parametrize(
+    "shape", [(1000, 50, 1800, 3600),],
+)
+@pytest.mark.parametrize(
+    "chunks", [(1, 5, 1800, 3600),],
+)
+@pytest.mark.parametrize(
+    "itemsize", [4,],
+)
 @pytest.mark.parametrize(
     "max_mem, expected",
     [(1_000_000_000, (1, 35, 1800, 3600)), (3_000_000_000, (2, 50, 1800, 3600))],
@@ -183,8 +189,7 @@ def test_rechunking_plan_2d(
 
 @st.composite
 def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
-    """Generate the data we need to test rechunking_plan.
-    """
+    """Generate the data we need to test rechunking_plan."""
     shape = []
     source_chunks = []
     target_chunks = []
