@@ -311,7 +311,7 @@ def _setup_rechunk(
         raise ValueError("Source must be a Zarr Array or Group, or a Dask Array.")
 
 
-def _validation_options(options):
+def _validate_options(options):
     if not options:
         return
     for k in ["shape", "chunks", "dtype", "store", "name"]:
@@ -332,8 +332,8 @@ def _setup_array_rechunk(
     temp_options=None,
     name=None,
 ) -> CopySpec:
-    _validation_options(target_options)
-    _validation_options(temp_options)
+    _validate_options(target_options)
+    _validate_options(temp_options)
     shape = source_array.shape
     source_chunks = (
         source_array.chunksize
