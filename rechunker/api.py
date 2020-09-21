@@ -137,13 +137,17 @@ def _get_dims_from_zarr_array(z_array):
     return z_array.attrs["_ARRAY_DIMENSIONS"]
 
 
-def _zarr_empty(shape, store_or_group, chunks, dtype, name=None):
+def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     # wrapper that maybe creates the array within a group
     if name is not None:
         assert isinstance(store_or_group, zarr.hierarchy.Group)
-        return store_or_group.empty(name, shape=shape, chunks=chunks, dtype=dtype)
+        return store_or_group.empty(
+            name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
+        )
     else:
-        return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group)
+        return zarr.empty(
+            shape, chunks=chunks, dtype=dtype, store=store_or_group, **kwargs
+        )
 
 
 def _get_executor(name: str) -> Executor:
@@ -178,7 +182,9 @@ def rechunk(
     target_chunks,
     max_mem,
     target_store,
+    target_options=None,
     temp_store=None,
+    temp_options=None,
     executor: Union[str, Executor] = "dask",
 ) -> Rechunked:
     """
@@ -212,9 +218,17 @@ def rechunk(
     target_store : str, MutableMapping, or zarr.Store object
         The location in which to store the final, rechunked result.
         Will be passed directly to :py:meth:`zarr.creation.create`
+    target_options: Dict, optional
+        Additional keyword arguments used to create target arrays.
+        See :py:meth:`zarr.creation.create` for arguments available.
+        Must not include any of [``shape``, ``chunks``, ``dtype``, ``store``].
     temp_store : str, MutableMapping, or zarr.Store object, optional
         Location of temporary store for intermediate data. Can be deleted
         once rechunking is complete.
+    temp_options: Dict, optional
+        Additional keyword arguments used to create intermediate arrays.
+        See :py:meth:`zarr.creation.create` for arguments available.
+        Must not include any of [``shape``, ``chunks``, ``dtype``, ``store``].
     executor: str or rechunker.types.Executor
         Implementation of the execution engine for copying between zarr arrays.
         Supplying a custom Executor is currently even more experimental than the
@@ -228,14 +242,26 @@ def rechunk(
     if isinstance(executor, str):
         executor = _get_executor(executor)
     copy_spec, intermediate, target = _setup_rechunk(
-        source, target_chunks, max_mem, target_store, temp_store
+        source=source,
+        target_chunks=target_chunks,
+        max_mem=max_mem,
+        target_store=target_store,
+        target_options=target_options,
+        temp_store=temp_store,
+        temp_options=temp_options,
     )
     plan = executor.prepare_plan(copy_spec)
     return Rechunked(executor, plan, source, intermediate, target)
 
 
 def _setup_rechunk(
-    source, target_chunks, max_mem, target_store, temp_store=None,
+    source,
+    target_chunks,
+    max_mem,
+    target_store,
+    target_options=None,
+    temp_store=None,
+    temp_options=None,
 ):
     if isinstance(source, zarr.hierarchy.Group):
         if not isinstance(target_chunks, dict):
@@ -257,7 +283,9 @@ def _setup_rechunk(
                 array_target_chunks,
                 max_mem,
                 target_group,
+                target_options=target_options,
                 temp_store_or_group=temp_group,
+                temp_options=temp_options,
                 name=array_name,
             )
             copy_specs.append(copy_spec)
@@ -271,7 +299,9 @@ def _setup_rechunk(
             target_chunks,
             max_mem,
             target_store,
+            target_options=target_options,
             temp_store_or_group=temp_store,
+            temp_options=temp_options,
         )
         intermediate = copy_spec.intermediate.array
         target = copy_spec.write.array
@@ -281,14 +311,29 @@ def _setup_rechunk(
         raise ValueError("Source must be a Zarr Array or Group, or a Dask Array.")
 
 
+def _validate_options(options):
+    if not options:
+        return
+    for k in ["shape", "chunks", "dtype", "store", "name"]:
+        if k in options:
+            raise ValueError(
+                f"Optional array arguments must not include {k} (provided {k}={options[k]}). "
+                "Values for this property are managed internally."
+            )
+
+
 def _setup_array_rechunk(
     source_array,
     target_chunks,
     max_mem,
     target_store_or_group,
+    target_options=None,
     temp_store_or_group=None,
+    temp_options=None,
     name=None,
 ) -> CopySpec:
+    _validate_options(target_options)
+    _validate_options(temp_options)
     shape = source_array.shape
     source_chunks = (
         source_array.chunksize
@@ -333,7 +378,12 @@ def _setup_array_rechunk(
     write_chunks = tuple(int(x) for x in write_chunks)
 
     target_array = _zarr_empty(
-        shape, target_store_or_group, target_chunks, dtype, name=name
+        shape,
+        target_store_or_group,
+        target_chunks,
+        dtype,
+        name=name,
+        **(target_options or {}),
     )
     try:
         target_array.attrs.update(source_array.attrs)
@@ -346,7 +396,12 @@ def _setup_array_rechunk(
         # do intermediate store
         assert temp_store_or_group is not None
         int_array = _zarr_empty(
-            shape, temp_store_or_group, int_chunks, dtype, name=name
+            shape,
+            temp_store_or_group,
+            int_chunks,
+            dtype,
+            name=name,
+            **(temp_options or {}),
         )
 
     read_proxy = ArrayProxy(source_array, read_chunks)
