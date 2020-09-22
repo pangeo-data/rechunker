@@ -7,6 +7,8 @@ import zarr
 import dask.array as dsa
 import dask
 import dask.core
+import xarray
+import numpy
 
 from rechunker import api
 
@@ -33,6 +35,70 @@ requires_pywren = partial(requires_import, "pywren_ibm_cloud")
 @pytest.fixture(params=[(8000, 200), {"y": 8000, "x": 200}])
 def target_chunks(request):
     return request.param
+
+
+def test_invalid_executor():
+    with pytest.raises(ValueError, match="unrecognized executor"):
+        api._get_executor("unknown")
+
+
+@pytest.mark.parametrize("shape", [(100, 50)])
+@pytest.mark.parametrize("source_chunks", [(10, 50)])
+@pytest.mark.parametrize("target_chunks", [(20, 10)])
+@pytest.mark.parametrize("max_mem", ["10MB"])
+@pytest.mark.parametrize("pass_temp", [True, False])
+@pytest.mark.parametrize("executor", ["dask", api._get_executor("dask")])
+def test_rechunk_dataset(
+    tmp_path, shape, source_chunks, target_chunks, max_mem, pass_temp, executor
+):
+    target_store = str(tmp_path / "target.zarr")
+    temp_store = str(tmp_path / "temp.zarr")
+
+    a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
+    a[-1] = numpy.nan
+    ds = xarray.Dataset(
+        dict(
+            a=xarray.DataArray(
+                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
+            ),
+            b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
+        attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
+    )
+    ds = ds.chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    encoding = dict(
+        a=dict(
+            chunks=target_chunks,
+            compressor=zarr.Blosc(cname="zstd"),
+            dtype="int32",
+            scale_factor=0.1,
+            _FillValue=-9999,
+        ),
+        b=dict(chunks=target_chunks[:1]),
+    )
+    rechunked = api.rechunk_dataset(
+        ds,
+        encoding=encoding,
+        max_mem=max_mem,
+        target_store=target_store,
+        temp_store=temp_store if pass_temp else None,
+        executor=executor,
+    )
+    assert isinstance(rechunked, api.Rechunked)
+    rechunked.execute()
+
+    # Validate encoded variables
+    dst = xarray.open_zarr(target_store, decode_cf=False)
+    assert dst.a.dtype == encoding["a"]["dtype"]
+    assert all(dst.a.values[-1] == encoding["a"]["_FillValue"])
+
+    # Validate decoded variables
+    dst = xarray.open_zarr(target_store, decode_cf=True)
+    assert dst.a.data.chunksize == target_chunks
+    assert dst.b.data.chunksize == target_chunks[:1]
+    assert dst.c.data.chunksize == source_chunks[1:]
+    xarray.testing.assert_equal(ds.compute(), dst.compute())
 
 
 @pytest.mark.parametrize("shape", [(8000, 8000)])

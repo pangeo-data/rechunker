@@ -7,10 +7,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 
-install_requires = [
-    "dask[array]",
-    "zarr",
-]
+install_requires = ["dask[array]", "zarr", "xarray"]
 doc_requires = [
     "sphinx",
     "sphinxcontrib-srclinks",
