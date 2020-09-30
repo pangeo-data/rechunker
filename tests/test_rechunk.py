@@ -64,24 +64,27 @@ def test_rechunk_dataset(
             b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
             c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
         ),
+        coords=dict(
+            cx=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            cy=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
         attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
     )
     ds = ds.chunk(chunks=dict(zip(["x", "y"], source_chunks)))
-    encoding = dict(
+    options = dict(
         a=dict(
-            chunks=target_chunks,
             compressor=zarr.Blosc(cname="zstd"),
             dtype="int32",
             scale_factor=0.1,
             _FillValue=-9999,
-        ),
-        b=dict(chunks=target_chunks[:1]),
+        )
     )
-    rechunked = api.rechunk_dataset(
+    rechunked = api.rechunk(
         ds,
-        encoding=encoding,
+        target_chunks=dict(a=target_chunks, b=target_chunks[:1]),
         max_mem=max_mem,
         target_store=target_store,
+        target_options=options,
         temp_store=temp_store if pass_temp else None,
         executor=executor,
     )
@@ -90,8 +93,9 @@ def test_rechunk_dataset(
 
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
-    assert dst.a.dtype == encoding["a"]["dtype"]
-    assert all(dst.a.values[-1] == encoding["a"]["_FillValue"])
+    assert dst.a.dtype == options["a"]["dtype"]
+    assert all(dst.a.values[-1] == options["a"]["_FillValue"])
+    assert dst.a.encoding["compressor"] is not None
 
     # Validate decoded variables
     dst = xarray.open_zarr(target_store, decode_cf=True)
@@ -99,6 +103,7 @@ def test_rechunk_dataset(
     assert dst.b.data.chunksize == target_chunks[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
     xarray.testing.assert_equal(ds.compute(), dst.compute())
+    assert ds.attrs == dst.attrs
 
 
 @pytest.mark.parametrize("shape", [(8000, 8000)])
@@ -252,67 +257,104 @@ def test_rechunk_group(tmp_path, executor):
         assert dsa.equal(a_tar, 1).all().compute()
 
 
-@pytest.fixture(params=["Array", "Group"])
-def rechunked_fn(tmp_path, request):
-    if request.param == "Group":
-        store_source = str(tmp_path / "source.zarr")
-        group = zarr.group(store_source)
-        group.attrs["foo"] = "bar"
-        # 800 byte chunks
-        a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
-        a.attrs["foo"] = "bar"
-        b = group.ones("b", shape=(8000,), chunks=(100,), dtype="f4")
-        b.attrs["foo"] = "bar"
+def sample_xarray_dataset():
+    return xarray.Dataset(
+        dict(
+            a=xarray.DataArray(
+                dsa.ones(shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4"),
+                dims=("x", "y", "z"),
+                attrs={"foo": "bar"},
+            ),
+            b=xarray.DataArray(
+                dsa.ones(shape=(8000,), chunks=(100,), dtype="f4"),
+                dims="w",
+                attrs={"foo": "bar"},
+            ),
+        ),
+        attrs={"foo": "bar"},
+    )
+
+
+def sample_zarr_group(tmp_path):
+    path = str(tmp_path / "source.zarr")
+    group = zarr.group(path)
+    group.attrs["foo"] = "bar"
+    # 800 byte chunks
+    a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
+    a.attrs["foo"] = "bar"
+    b = group.ones("b", shape=(8000,), chunks=(100,), dtype="f4")
+    b.attrs["foo"] = "bar"
+    return group
+
+
+def sample_zarr_array(tmp_path):
+    shape = (8000, 8000)
+    source_chunks = (200, 8000)
+    dtype = "f4"
+    dims = None
+
+    path = str(tmp_path / "source.zarr")
+    array = zarr.ones(shape, chunks=source_chunks, dtype=dtype, store=path)
+    # add some attributes
+    array.attrs["foo"] = "bar"
+    if dims:
+        array.attrs[_DIMENSION_KEY] = dims
+    return array
+
+
+@pytest.fixture(params=["Array", "Group", "Dataset"])
+def rechunk_args(tmp_path, request):
+    if request.param == "Dataset":
+        ds = sample_xarray_dataset()
 
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
+        max_mem = 16000
+        target_chunks = {"a": (5, 10, 4), "b": (4000,)}
 
+        args = dict(
+            source=ds,
+            target_chunks=target_chunks,
+            max_mem=max_mem,
+            target_store=target_store,
+            temp_store=temp_store,
+        )
+    elif request.param == "Group":
+        group = sample_zarr_group(tmp_path)
+
+        target_store = str(tmp_path / "target.zarr")
+        temp_store = str(tmp_path / "temp.zarr")
         max_mem = 16000  # should force a two-step plan for b
         target_chunks = {"a": (5, 10, 4), "b": (4000,)}
 
-        rechunked_fn = partial(
-            api.rechunk,
-            group,
-            target_chunks,
-            max_mem,
-            target_store,
+        args = dict(
+            source=group,
+            target_chunks=target_chunks,
+            max_mem=max_mem,
+            target_store=target_store,
             temp_store=temp_store,
         )
     else:
-        shape = (8000, 8000)
-        source_chunks = (200, 8000)
-        dtype = "f4"
-        max_mem = 25600000
-        dims = None
-        target_chunks = (8000, 200)
+        array = sample_zarr_array(tmp_path)
 
-        store_source = str(tmp_path / "source.zarr")
-        source_array = zarr.ones(
-            shape, chunks=source_chunks, dtype=dtype, store=store_source
-        )
-        # add some attributes
-        source_array.attrs["foo"] = "bar"
-        if dims:
-            source_array.attrs[_DIMENSION_KEY] = dims
-
-        ### Create targets ###
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
+        max_mem = 25600000
+        target_chunks = (8000, 200)
 
-        rechunked_fn = partial(
-            api.rechunk,
-            source_array,
-            target_chunks,
-            max_mem,
-            target_store,
+        args = dict(
+            source=array,
+            target_chunks=target_chunks,
+            max_mem=max_mem,
+            target_store=target_store,
             temp_store=temp_store,
         )
-    return rechunked_fn
+    return args
 
 
 @pytest.fixture()
-def rechunked(rechunked_fn):
-    return rechunked_fn()
+def rechunked(rechunk_args):
+    return api.rechunk(**rechunk_args)
 
 
 def test_repr(rechunked):
@@ -323,24 +365,40 @@ def test_repr(rechunked):
     assert all(thing in repr_str for thing in ["Source", "Intermediate", "Target"])
 
 
-def test_rechunk_option_overwrite(rechunked_fn):
-    rechunked_fn().execute()
+def test_repr_html(rechunked):
+    rechunked._repr_html_()  # no exceptions
+
+
+def _is_collection(source):
+    assert isinstance(
+        source,
+        (dask.array.Array, zarr.core.Array, zarr.hierarchy.Group, xarray.Dataset),
+    )
+    return isinstance(source, (zarr.hierarchy.Group, xarray.Dataset))
+
+
+def _wrap_options(source, options):
+    if _is_collection(source):
+        options = {v: options for v in source}
+    return options
+
+
+def test_rechunk_option_overwrite(rechunk_args):
+    api.rechunk(**rechunk_args).execute()
     # TODO: make this match more reliable based on outcome of
     # https://github.com/zarr-developers/zarr-python/issues/605
     with pytest.raises(ValueError, match=r"path .* contains an array"):
-        rechunked_fn().execute()
-    rechunked = rechunked_fn(
-        temp_options=dict(overwrite=True), target_options=dict(overwrite=True)
-    )
-    rechunked.execute()
+        api.rechunk(**rechunk_args).execute()
+    options = _wrap_options(rechunk_args["source"], dict(overwrite=True))
+    api.rechunk(**rechunk_args, target_options=options).execute()
 
 
-def test_rechunk_option_compression(rechunked_fn):
+def test_rechunk_option_compression(rechunk_args):
     def rechunk(compressor):
-        rechunked = rechunked_fn(
-            temp_options=dict(overwrite=True, compressor=compressor),
-            target_options=dict(overwrite=True, compressor=compressor),
+        options = _wrap_options(
+            rechunk_args["source"], dict(overwrite=True, compressor=compressor)
         )
+        rechunked = api.rechunk(**rechunk_args, target_options=options)
         rechunked.execute()
         return sum(
             file.stat().st_size
@@ -354,20 +412,53 @@ def test_rechunk_option_compression(rechunked_fn):
     assert size_compressed < size_uncompressed
 
 
-def test_rechunk_reserved_option(rechunked_fn):
-    for o in ["shape", "chunks", "dtype", "store", "name"]:
+def test_rechunk_invalid_option(rechunk_args):
+    if isinstance(rechunk_args["source"], xarray.Dataset):
+        # Options are essentially unbounded for Xarray (for CF encoding params),
+        # so check only options with special error cases
+        options = _wrap_options(rechunk_args["source"], {"chunks": 10})
         with pytest.raises(
-            ValueError, match=f"Optional array arguments must not include {o}"
+            ValueError,
+            match="Chunks must be provided in ``target_chunks`` rather than options",
         ):
-            rechunked_fn(temp_options={o: True})
-        with pytest.raises(
-            ValueError, match=f"Optional array arguments must not include {o}"
-        ):
-            rechunked_fn(target_options={o: True})
+            api.rechunk(**rechunk_args, target_options=options)
+    else:
+        for o in ["shape", "chunks", "dtype", "store", "name", "unknown"]:
+            options = _wrap_options(rechunk_args["source"], {o: True})
+            with pytest.raises(ValueError, match=f"Zarr options must not include {o}"):
+                api.rechunk(**rechunk_args, temp_options=options)
+            with pytest.raises(ValueError, match=f"Zarr options must not include {o}"):
+                api.rechunk(**rechunk_args, target_options=options)
 
 
-def test_repr_html(rechunked):
-    rechunked._repr_html_()  # no exceptions
+def test_rechunk_bad_target_chunks(rechunk_args):
+    if not _is_collection(rechunk_args["source"]):
+        return
+    rechunk_args = dict(rechunk_args)
+    rechunk_args["target_chunks"] = (10, 10)
+    with pytest.raises(
+        ValueError, match="You must specify ``target-chunks`` as a dict"
+    ):
+        api.rechunk(**rechunk_args)
+
+
+def test_rechunk_invalid_source(tmp_path):
+    with pytest.raises(
+        ValueError,
+        match="Source must be a Zarr Array, Zarr Group, Dask Array or Xarray Dataset",
+    ):
+        api.rechunk(
+            [[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path
+        )
+
+
+def test_rechunk_no_target_chunks(rechunk_args):
+    rechunk_args = dict(rechunk_args)
+    if _is_collection(rechunk_args["source"]):
+        rechunk_args["target_chunks"] = {v: None for v in rechunk_args["source"]}
+    else:
+        rechunk_args["target_chunks"] = None
+    api.rechunk(**rechunk_args)
 
 
 def test_no_intermediate():
