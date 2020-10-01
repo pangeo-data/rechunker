@@ -46,10 +46,9 @@ def test_invalid_executor():
 @pytest.mark.parametrize("source_chunks", [(10, 50)])
 @pytest.mark.parametrize("target_chunks", [(20, 10)])
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("pass_temp", [True, False])
-@pytest.mark.parametrize("executor", ["dask", api._get_executor("dask")])
+@pytest.mark.parametrize("executor", ["dask"])
 def test_rechunk_dataset(
-    tmp_path, shape, source_chunks, target_chunks, max_mem, pass_temp, executor
+    tmp_path, shape, source_chunks, target_chunks, max_mem, executor
 ):
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
@@ -85,7 +84,7 @@ def test_rechunk_dataset(
         max_mem=max_mem,
         target_store=target_store,
         target_options=options,
-        temp_store=temp_store if pass_temp else None,
+        temp_store=temp_store,
         executor=executor,
     )
     assert isinstance(rechunked, api.Rechunked)
@@ -253,6 +252,7 @@ def test_rechunk_group(tmp_path, executor):
 
     rechunked.execute()
     for aname in target_chunks:
+        assert target_group[aname].chunks == target_chunks[aname]
         a_tar = dsa.from_zarr(target_group[aname])
         assert dsa.equal(a_tar, 1).all().compute()
 
@@ -261,12 +261,12 @@ def sample_xarray_dataset():
     return xarray.Dataset(
         dict(
             a=xarray.DataArray(
-                dsa.ones(shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4"),
+                dsa.ones(shape=(10, 20, 40), chunks=(5, 10, 4), dtype="f4"),
                 dims=("x", "y", "z"),
                 attrs={"foo": "bar"},
             ),
             b=xarray.DataArray(
-                dsa.ones(shape=(8000,), chunks=(100,), dtype="f4"),
+                dsa.ones(shape=(8000,), chunks=(200,), dtype="f4"),
                 dims="w",
                 attrs={"foo": "bar"},
             ),
@@ -280,9 +280,9 @@ def sample_zarr_group(tmp_path):
     group = zarr.group(path)
     group.attrs["foo"] = "bar"
     # 800 byte chunks
-    a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
+    a = group.ones("a", shape=(10, 20, 40), chunks=(5, 10, 4), dtype="f4")
     a.attrs["foo"] = "bar"
-    b = group.ones("b", shape=(8000,), chunks=(100,), dtype="f4")
+    b = group.ones("b", shape=(8000,), chunks=(200,), dtype="f4")
     b.attrs["foo"] = "bar"
     return group
 
@@ -309,8 +309,8 @@ def rechunk_args(tmp_path, request):
 
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
-        max_mem = 16000
-        target_chunks = {"a": (5, 10, 4), "b": (4000,)}
+        max_mem = 1600  # should force a two-step plan for a and b
+        target_chunks = {"a": (10, 5, 4), "b": (100,)}
 
         args = dict(
             source=ds,
@@ -324,8 +324,8 @@ def rechunk_args(tmp_path, request):
 
         target_store = str(tmp_path / "target.zarr")
         temp_store = str(tmp_path / "temp.zarr")
-        max_mem = 16000  # should force a two-step plan for b
-        target_chunks = {"a": (5, 10, 4), "b": (4000,)}
+        max_mem = 1600  # should force a two-step plan for a and b
+        target_chunks = {"a": (10, 5, 4), "b": (100,)}
 
         args = dict(
             source=group,
@@ -393,6 +393,23 @@ def test_rechunk_option_overwrite(rechunk_args):
     api.rechunk(**rechunk_args, target_options=options).execute()
 
 
+def test_rechunk_passthrough(rechunk_args):
+    # Verify that no errors are raised when the target chunks == source chunks
+    if _is_collection(rechunk_args["source"]):
+        rechunk_args["target_chunks"] = {v: None for v in rechunk_args["source"]}
+    else:
+        rechunk_args["target_chunks"] = None
+    api.rechunk(**rechunk_args).execute()
+
+
+def test_rechunk_no_temp_dir_provided_error(rechunk_args):
+    # Verify that the correct error is raised when no temp_store is given
+    # and the chunks to write differ from the chunks to read
+    args = {k: v for k, v in rechunk_args.items() if k != "temp_store"}
+    with pytest.raises(ValueError, match="A temporary store location must be provided"):
+        api.rechunk(**args).execute()
+
+
 def test_rechunk_option_compression(rechunk_args):
     def rechunk(compressor):
         options = _wrap_options(
@@ -449,6 +466,31 @@ def test_rechunk_invalid_source(tmp_path):
     ):
         api.rechunk(
             [[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path
+        )
+
+
+@pytest.mark.parametrize(
+    "executor",
+    [
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
+)
+def test_unsupported_dataset_executor(tmp_path, executor):
+    ds = sample_xarray_dataset()
+    with pytest.raises(
+        NotImplementedError,
+        match="Only dask executor supported for Xarray Dataset source",
+    ):
+        api.rechunk(
+            ds,
+            target_chunks={"a": (10, 5, 4), "b": (100,)},
+            max_mem=1600,
+            target_store=str(tmp_path / "target.zarr"),
+            temp_store=str(tmp_path / "temp.zarr"),
+            executor=executor,
         )
 
 

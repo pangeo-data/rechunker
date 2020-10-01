@@ -7,7 +7,6 @@ import zarr
 import dask
 import dask.array
 import xarray
-import tempfile
 
 from rechunker.algorithm import rechunking_plan
 from rechunker.types import ArrayProxy, CopySpec, Executor
@@ -279,6 +278,14 @@ def rechunk(
     """
     if isinstance(executor, str):
         executor = _get_executor(executor)
+    if isinstance(source, xarray.Dataset):
+        from rechunker.executors.dask import DaskExecutor
+
+        if not isinstance(executor, DaskExecutor):
+            raise NotImplementedError(
+                "Only dask executor supported for Xarray Dataset source"
+            )
+
     copy_spec, intermediate, target = _setup_rechunk(
         source=source,
         target_chunks=target_chunks,
@@ -318,7 +325,7 @@ def _setup_rechunk(
         if temp_store:
             temp_group = zarr.group(temp_store)
         else:
-            temp_group = zarr.group(tempfile.mkdtemp(".zarr", "temp_store_"))
+            temp_group = None
         target_group = zarr.group(target_store)
         target_group.attrs.update(attrs)
 
@@ -382,7 +389,7 @@ def _setup_rechunk(
         if temp_store:
             temp_group = zarr.group(temp_store)
         else:
-            temp_group = zarr.group(tempfile.mkdtemp(".zarr", "temp_store_"))
+            temp_group = None
         target_group = zarr.group(target_store)
         target_group.attrs.update(source.attrs)
 
@@ -495,7 +502,12 @@ def _setup_array_rechunk(
         int_array = None
     else:
         # do intermediate store
-        assert temp_store_or_group is not None
+        if temp_store_or_group is None:
+            raise ValueError(
+                "A temporary store location must be provided{}.".format(
+                    f" (array={name})" if name else ""
+                )
+            )
         int_array = _zarr_empty(
             shape,
             temp_store_or_group,
