@@ -470,6 +470,13 @@ def test_rechunk_invalid_source(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "source,target_chunks",
+    [
+        (sample_xarray_dataset(), {"a": (10, 5, 4), "b": (100,)}),
+        (dsa.ones((20, 10), chunks=(5, 5)), (10, 10)),
+    ],
+)
+@pytest.mark.parametrize(
     "executor",
     [
         "python",
@@ -478,15 +485,13 @@ def test_rechunk_invalid_source(tmp_path):
         requires_pywren("pywren"),
     ],
 )
-def test_unsupported_dataset_executor(tmp_path, executor):
-    ds = sample_xarray_dataset()
+def test_unsupported_executor(tmp_path, source, target_chunks, executor):
     with pytest.raises(
-        NotImplementedError,
-        match="Only dask executor supported for Xarray Dataset source",
+        NotImplementedError, match="Executor type .* not supported for source",
     ):
         api.rechunk(
-            ds,
-            target_chunks={"a": (10, 5, 4), "b": (100,)},
+            source,
+            target_chunks=target_chunks,
             max_mem=1600,
             target_store=str(tmp_path / "target.zarr"),
             temp_store=str(tmp_path / "temp.zarr"),

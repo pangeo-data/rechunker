@@ -278,12 +278,12 @@ def rechunk(
     """
     if isinstance(executor, str):
         executor = _get_executor(executor)
-    if isinstance(source, xarray.Dataset):
+    if isinstance(source, (dask.array.Array, xarray.Dataset)):
         from rechunker.executors.dask import DaskExecutor
 
         if not isinstance(executor, DaskExecutor):
             raise NotImplementedError(
-                "Only dask executor supported for Xarray Dataset source"
+                f"Executor type {type(executor)} not supported for source {type(source)}."
             )
 
     copy_spec, intermediate, target = _setup_rechunk(
