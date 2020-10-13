@@ -1,16 +1,25 @@
 Release Notes
 =============
 
-v0.2.0
-------
+v0.3.2 - Unreleased
+-------------------
+
+
+v0.3.1 - 2020-10-13
+-------------------
+
+Note: Skipped 0.3.0 due to error in release workflow.
+
+- Added options for Zarr array definition. By `Eric Czech <https://github.com/eric-czech>`_.
+- Exerimental support for rechunking Xarray datasets. By `Eric Czech <https://github.com/eric-czech>`_.
+- Better internal type checking. By `Tom White <https://github.com/tomwhite>`_.
+
+v0.2.0 - 2020-08-24
+-------------------
 
 - Added ``rechunker.executors`` for executing plans with other
   backends like Apache Beam, prefect, and pywren. See :ref:`executors` for more.
 - Fixed overflow bug when computing the number of chunks needed for a memory target.
-
-v0.0.1
------------------
-
 - Documentation update and tutorial.
 - Allow rechunk to accept a Dask array.
 
