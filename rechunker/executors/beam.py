@@ -1,5 +1,5 @@
 import uuid
-from typing import Iterable, Mapping, Tuple
+from typing import Iterable, Iterator, Mapping, Tuple
 
 import apache_beam as beam
 
@@ -77,7 +77,7 @@ class _CopyStage(beam.PTransform):
 
 def _start_stage(
     target_id: str, specs_by_target: Mapping[str, DirectCopySpec],
-) -> Tuple[str, DirectCopySpec]:
+) -> Iterator[Tuple[str, DirectCopySpec]]:
     spec = specs_by_target.get(target_id)
     if spec is not None:
         yield target_id, spec
@@ -85,7 +85,7 @@ def _start_stage(
 
 def _copy_tasks(
     target_id: str, spec: DirectCopySpec
-) -> Tuple[str, Tuple[slice, ...], ReadableArray, WriteableArray]:
+) -> Iterator[Tuple[str, Tuple[slice, ...], ReadableArray, WriteableArray]]:
     for key in chunk_keys(spec.source.shape, spec.chunks):
         yield target_id, key, spec.source, spec.target
 

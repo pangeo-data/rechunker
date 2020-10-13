@@ -38,7 +38,7 @@ class PywrenExecutor(Executor[Task]):
         # TODO: execute tasks for different specs in parallel
         return partial(_execute_in_series, tasks)
 
-    def execute_plan(self, plan: Task):
+    def execute_plan(self, plan: Task, **kwargs):
         if self.pywren_function_executor is None:
             # No Pywren function executor specified, so use a local one, and shutdown after use
             with pywren_local_function_executor() as pywren_function_executor:
