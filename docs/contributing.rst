@@ -12,5 +12,5 @@ On the master branch, with a clean checkout
    git tag -a 0.2.0 -m "RLS: 0.2.0"
    git push upstream master --follow-tags
 
-   python setup.py sdist bdist_wheel
-   twine upload dist/rechunker-0.2.0* --skip-existing
+A GitHub Action should push the release to PyPI. After that, conda-forge's
+bot will update the conda packages.
