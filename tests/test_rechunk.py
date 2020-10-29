@@ -304,50 +304,32 @@ def sample_zarr_array(tmp_path):
 
 @pytest.fixture(params=["Array", "Group", "Dataset"])
 def rechunk_args(tmp_path, request):
+    target_store = str(tmp_path / "target.zarr")
+    temp_store = str(tmp_path / "temp.zarr")
+    max_mem = 1600  # should force a two-step plan for a and b
+    target_chunks = {"a": (10, 5, 4), "b": (100,)}
+
+    args = dict(
+        target_chunks=target_chunks,
+        max_mem=max_mem,
+        target_store=target_store,
+        temp_store=temp_store,
+    )
     if request.param == "Dataset":
         ds = sample_xarray_dataset()
-
-        target_store = str(tmp_path / "target.zarr")
-        temp_store = str(tmp_path / "temp.zarr")
-        max_mem = 1600  # should force a two-step plan for a and b
-        target_chunks = {"a": (10, 5, 4), "b": (100,)}
-
-        args = dict(
-            source=ds,
-            target_chunks=target_chunks,
-            max_mem=max_mem,
-            target_store=target_store,
-            temp_store=temp_store,
-        )
+        args.update({"source": ds})
     elif request.param == "Group":
         group = sample_zarr_group(tmp_path)
-
-        target_store = str(tmp_path / "target.zarr")
-        temp_store = str(tmp_path / "temp.zarr")
-        max_mem = 1600  # should force a two-step plan for a and b
-        target_chunks = {"a": (10, 5, 4), "b": (100,)}
-
-        args = dict(
-            source=group,
-            target_chunks=target_chunks,
-            max_mem=max_mem,
-            target_store=target_store,
-            temp_store=temp_store,
-        )
+        args.update({"source": group})
     else:
         array = sample_zarr_array(tmp_path)
-
-        target_store = str(tmp_path / "target.zarr")
-        temp_store = str(tmp_path / "temp.zarr")
         max_mem = 25600000
         target_chunks = (8000, 200)
 
-        args = dict(
-            source=array,
-            target_chunks=target_chunks,
-            max_mem=max_mem,
-            target_store=target_store,
-            temp_store=temp_store,
+        args.update(
+            "source": array,
+            "target_chunks": target_chunks,
+            "max_mem": max_mem,
         )
     return args
 
