@@ -327,9 +327,7 @@ def rechunk_args(tmp_path, request):
         target_chunks = (8000, 200)
 
         args.update(
-            "source": array,
-            "target_chunks": target_chunks,
-            "max_mem": max_mem,
+            {"source": array, "target_chunks": target_chunks, "max_mem": max_mem,}
         )
     return args
 
