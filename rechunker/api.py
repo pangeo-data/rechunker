@@ -329,7 +329,7 @@ def _setup_rechunk(
         variables, attrs = encode_dataset_coordinates(source)
         attrs = _encode_zarr_attributes(attrs)
 
-        if temp_store:
+        if temp_store is not None:
             temp_group = zarr.group(temp_store)
         else:
             temp_group = None
