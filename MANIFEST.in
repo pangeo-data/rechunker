@@ -1,3 +1,2 @@
 include LICENSE
-include versioneer.py
-include rechunker/_version.py
+exclude rechunker/_version.py

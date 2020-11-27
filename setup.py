@@ -1,6 +1,6 @@
 import os
-import versioneer
 from setuptools import find_packages, setup
+from setuptools import setup
 
 here = os.path.dirname(__file__)
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
@@ -53,8 +53,12 @@ setup(
     install_requires=install_requires,
     extras_require=extras_require,
     python_requires=">=3.6",
-    version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
     long_description=long_description,
     long_description_content_type="text/markdown",
+    setup_requires="setuptools_scm",
+    use_scm_version={
+        "write_to": "rechunker/_version.py",
+        "write_to_template": '__version__ = "{version}"',
+        "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
+    },
 )
