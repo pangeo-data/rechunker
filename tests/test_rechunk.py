@@ -62,12 +62,9 @@ def test_rechunk_dataset(
 ):
     if target_store.startswith("mapper"):
         target_store = fsspec.get_mapper(str(tmp_path) + target_store)
-    else:
-        target_store = str(tmp_path / target_store)
-
-    if temp_store.startswith("mapper"):
         temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
     else:
+        target_store = str(tmp_path / target_store)
         temp_store = str(tmp_path / temp_store)
 
     a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
