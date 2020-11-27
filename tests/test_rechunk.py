@@ -9,6 +9,7 @@ import dask
 import dask.core
 import xarray
 import numpy
+import fsspec
 
 from rechunker import api
 
@@ -47,11 +48,27 @@ def test_invalid_executor():
 @pytest.mark.parametrize("target_chunks", [(20, 10)])
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask"])
+@pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
+@pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset(
-    tmp_path, shape, source_chunks, target_chunks, max_mem, executor
+    tmp_path,
+    shape,
+    source_chunks,
+    target_chunks,
+    max_mem,
+    executor,
+    target_store,
+    temp_store,
 ):
-    target_store = str(tmp_path / "target.zarr")
-    temp_store = str(tmp_path / "temp.zarr")
+    if target_store.startswith("mapper"):
+        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
+    else:
+        target_store = str(tmp_path / target_store)
+
+    if temp_store.startswith("mapper"):
+        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
+    else:
+        temp_store = str(tmp_path / temp_store)
 
     a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
     a[-1] = numpy.nan
