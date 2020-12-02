@@ -4,8 +4,8 @@ Release Notes
 v0.3.2 - 2020-12-02
 -------------------
 
-- Fixed bug in rechunking of xarray datasets. By `Felipe Fernandes <https://github.com/ocefpaf>`_.
-- Internal improvments to tests and packagaging. By `Felipe Fernandes <https://github.com/ocefpaf>`_.
+- Fixed bug in rechunking of xarray datasets. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
+- Internal improvments to tests and packagaging. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
 - Updates to tutorial. By `Andrew Brettin <https://github.com/andrewbrettin>`_.
 
 v0.3.1 - 2020-10-13
