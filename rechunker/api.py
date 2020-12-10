@@ -216,12 +216,12 @@ def rechunk(
     executor: Union[str, Executor] = "dask",
 ) -> Rechunked:
     """
-    Rechunk a Zarr Array or Group, or a Dask Array
+    Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
 
     Parameters
     ----------
-    source : zarr.Array, zarr.Group, or dask.array.Array
-        Named dimensions in the Arrays will be parsed according to the
+    source : zarr.Array, zarr.Group, dask.array.Array, or xarray.Dataset
+        Named dimensions in the Zarr arrays will be parsed according to the
         Xarray :ref:`xarray:zarr_encoding`.
     target_chunks : tuple, dict, or None
         The desired chunks of the array after rechunking. The structure
@@ -361,6 +361,8 @@ def _setup_rechunk(
                 variable, raise_on_invalid=False, name=name
             )
             variable_chunks = target_chunks.get(name, variable_encoding["chunks"])
+            if isinstance(variable_chunks, dict):
+                variable_chunks = _shape_dict_to_tuple(variable.dims, variable_chunks)
 
             # Restrict options to only those that are specific to zarr and
             # not managed internally

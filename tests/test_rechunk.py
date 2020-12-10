@@ -45,7 +45,10 @@ def test_invalid_executor():
 
 @pytest.mark.parametrize("shape", [(100, 50)])
 @pytest.mark.parametrize("source_chunks", [(10, 50)])
-@pytest.mark.parametrize("target_chunks", [(20, 10)])
+@pytest.mark.parametrize(
+    "target_chunks",
+    [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
+)
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
@@ -94,7 +97,7 @@ def test_rechunk_dataset(
     )
     rechunked = api.rechunk(
         ds,
-        target_chunks=dict(a=target_chunks, b=target_chunks[:1]),
+        target_chunks=target_chunks,
         max_mem=max_mem,
         target_store=target_store,
         target_options=options,
@@ -112,8 +115,13 @@ def test_rechunk_dataset(
 
     # Validate decoded variables
     dst = xarray.open_zarr(target_store, decode_cf=True)
-    assert dst.a.data.chunksize == target_chunks
-    assert dst.b.data.chunksize == target_chunks[:1]
+    target_chunks_expected = (
+        target_chunks["a"]
+        if isinstance(target_chunks["a"], tuple)
+        else (target_chunks["a"]["x"], target_chunks["a"]["y"])
+    )
+    assert dst.a.data.chunksize == target_chunks_expected
+    assert dst.b.data.chunksize == target_chunks_expected[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
