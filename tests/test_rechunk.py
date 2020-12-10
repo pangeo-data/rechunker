@@ -74,9 +74,7 @@ def test_rechunk_dataset(
     a[-1] = numpy.nan
     ds = xarray.Dataset(
         dict(
-            a=xarray.DataArray(
-                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
-            ),
+            a=xarray.DataArray(a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}),
             b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
             c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
         ),
@@ -155,15 +153,11 @@ def test_rechunk_dataset(
         pytest.param(None, {"y": 8000, "x": 200}, marks=pytest.mark.xfail),
     ],
 )
-def test_rechunk_array(
-    tmp_path, shape, source_chunks, dtype, dims, target_chunks, max_mem, executor
-):
+def test_rechunk_array(tmp_path, shape, source_chunks, dtype, dims, target_chunks, max_mem, executor):
 
     ### Create source array ###
     store_source = str(tmp_path / "source.zarr")
-    source_array = zarr.ones(
-        shape, chunks=source_chunks, dtype=dtype, store=store_source
-    )
+    source_array = zarr.ones(shape, chunks=source_chunks, dtype=dtype, store=store_source)
     # add some attributes
     source_array.attrs["foo"] = "bar"
     if dims:
@@ -211,9 +205,7 @@ def test_rechunk_array(
         (400, 8000),
     ],
 )
-def test_rechunk_dask_array(
-    tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
-):
+def test_rechunk_dask_array(tmp_path, shape, source_chunks, dtype, target_chunks, max_mem):
 
     ### Create source array ###
     source_array = dsa.ones(shape, chunks=source_chunks, dtype=dtype)
@@ -222,9 +214,7 @@ def test_rechunk_dask_array(
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    rechunked = api.rechunk(
-        source_array, target_chunks, max_mem, target_store, temp_store=temp_store
-    )
+    rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store, temp_store=temp_store)
     assert isinstance(rechunked, api.Rechunked)
 
     target_array = zarr.open(target_store)
@@ -424,20 +414,13 @@ def test_rechunk_no_temp_dir_provided_error(rechunk_args):
 
 def test_rechunk_option_compression(rechunk_args):
     def rechunk(compressor):
-        options = _wrap_options(
-            rechunk_args["source"], dict(overwrite=True, compressor=compressor)
-        )
+        options = _wrap_options(rechunk_args["source"], dict(overwrite=True, compressor=compressor))
         rechunked = api.rechunk(**rechunk_args, target_options=options)
         rechunked.execute()
-        return sum(
-            file.stat().st_size
-            for file in Path(rechunked._target.store.path).rglob("*")
-        )
+        return sum(file.stat().st_size for file in Path(rechunked._target.store.path).rglob("*"))
 
     size_uncompressed = rechunk(None)
-    size_compressed = rechunk(
-        zarr.Blosc(cname="zstd", clevel=9, shuffle=zarr.Blosc.SHUFFLE)
-    )
+    size_compressed = rechunk(zarr.Blosc(cname="zstd", clevel=9, shuffle=zarr.Blosc.SHUFFLE))
     assert size_compressed < size_uncompressed
 
 
@@ -465,9 +448,7 @@ def test_rechunk_bad_target_chunks(rechunk_args):
         return
     rechunk_args = dict(rechunk_args)
     rechunk_args["target_chunks"] = (10, 10)
-    with pytest.raises(
-        ValueError, match="You must specify ``target-chunks`` as a dict"
-    ):
+    with pytest.raises(ValueError, match="You must specify ``target-chunks`` as a dict"):
         api.rechunk(**rechunk_args)
 
 
@@ -476,9 +457,7 @@ def test_rechunk_invalid_source(tmp_path):
         ValueError,
         match="Source must be a Zarr Array, Zarr Group, Dask Array or Xarray Dataset",
     ):
-        api.rechunk(
-            [[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path
-        )
+        api.rechunk([[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -537,9 +516,7 @@ def test_no_intermediate_fused(tmp_path):
     target_chunks = (400, 8000)
 
     store_source = str(tmp_path / "source.zarr")
-    source_array = zarr.ones(
-        shape, chunks=source_chunks, dtype=dtype, store=store_source
-    )
+    source_array = zarr.ones(shape, chunks=source_chunks, dtype=dtype, store=store_source)
 
     target_store = str(tmp_path / "target.zarr")
 
@@ -570,9 +547,7 @@ def test_pywren_function_executor(tmp_path):
 
         ### Create source array ###
         store_source = str(tmp_path / "source.zarr")
-        source_array = zarr.ones(
-            shape, chunks=source_chunks, dtype=dtype, store=store_source
-        )
+        source_array = zarr.ones(shape, chunks=source_chunks, dtype=dtype, store=store_source)
 
         ### Create targets ###
         target_store = str(tmp_path / "target.zarr")
