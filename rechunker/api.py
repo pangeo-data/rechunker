@@ -361,6 +361,8 @@ def _setup_rechunk(
                 variable, raise_on_invalid=False, name=name
             )
             variable_chunks = target_chunks.get(name, variable_encoding["chunks"])
+            if isinstance(variable_chunks, dict):
+                variable_chunks = _shape_dict_to_tuple(variable.dims, variable_chunks)
 
             # Restrict options to only those that are specific to zarr and
             # not managed internally
