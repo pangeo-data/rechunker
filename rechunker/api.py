@@ -148,9 +148,13 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     # wrapper that maybe creates the array within a group
     if name is not None:
         assert isinstance(store_or_group, zarr.hierarchy.Group)
-        return store_or_group.empty(name, shape=shape, chunks=chunks, dtype=dtype, **kwargs)
+        return store_or_group.empty(
+            name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
+        )
     else:
-        return zarr.empty(shape, chunks=chunks, dtype=dtype, store=store_or_group, **kwargs)
+        return zarr.empty(
+            shape, chunks=chunks, dtype=dtype, store=store_or_group, **kwargs
+        )
 
 
 ZARR_OPTIONS = [
@@ -212,12 +216,12 @@ def rechunk(
     executor: Union[str, Executor] = "dask",
 ) -> Rechunked:
     """
-    Rechunk a Zarr Array or Group, or a Dask Array
+    Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
 
     Parameters
     ----------
-    source : zarr.Array, zarr.Group, or dask.array.Array
-        Named dimensions in the Arrays will be parsed according to the
+    source : zarr.Array, zarr.Group, dask.array.Array, or xarray.Dataset
+        Named dimensions in the Zarr Arrays will be parsed according to the
         Xarray :ref:`xarray:zarr_encoding`.
     target_chunks : tuple, dict, or None
         The desired chunks of the array after rechunking. The structure
@@ -285,7 +289,9 @@ def rechunk(
         from rechunker.executors.dask import DaskExecutor
 
         if not isinstance(executor, DaskExecutor):
-            raise NotImplementedError(f"Executor type {type(executor)} not supported for source {type(source)}.")
+            raise NotImplementedError(
+                f"Executor type {type(executor)} not supported for source {type(source)}."
+            )
 
     copy_spec, intermediate, target = _setup_rechunk(
         source=source,
@@ -316,7 +322,9 @@ def _setup_rechunk(
 
     if isinstance(source, xarray.Dataset):
         if not isinstance(target_chunks, dict):
-            raise ValueError("You must specify ``target-chunks`` as a dict when rechunking a dataset.")
+            raise ValueError(
+                "You must specify ``target-chunks`` as a dict when rechunking a dataset."
+            )
 
         variables, attrs = encode_dataset_coordinates(source)
         attrs = _encode_zarr_attributes(attrs)
@@ -340,14 +348,18 @@ def _setup_rechunk(
             # applicable for the `encoding` parameter in Dataset.to_zarr other than "chunks"
             options = target_options.get(name, {})
             if "chunks" in options:
-                raise ValueError(f"Chunks must be provided in ``target_chunks`` rather than options (variable={name})")
+                raise ValueError(
+                    f"Chunks must be provided in ``target_chunks`` rather than options (variable={name})"
+                )
             variable.encoding.update(options)
             variable = encode_zarr_variable(variable)
 
             # Extract the array encoding to get a default chunking, a step
             # which will also ensure that the target chunking is compatible
             # with the current chunking (only necessary for on-disk arrays)
-            variable_encoding = extract_zarr_variable_encoding(variable, raise_on_invalid=False, name=name)
+            variable_encoding = extract_zarr_variable_encoding(
+                variable, raise_on_invalid=False, name=name
+            )
             variable_chunks = target_chunks.get(name, variable_encoding["chunks"])
             if isinstance(variable_chunks, dict):
                 variable_chunks = _shape_dict_to_tuple(variable.dims, variable_chunks)
@@ -379,7 +391,9 @@ def _setup_rechunk(
 
     elif isinstance(source, zarr.hierarchy.Group):
         if not isinstance(target_chunks, dict):
-            raise ValueError("You must specify ``target-chunks`` as a dict when rechunking a group.")
+            raise ValueError(
+                "You must specify ``target-chunks`` as a dict when rechunking a group."
+            )
 
         if temp_store:
             temp_group = zarr.group(temp_store)
@@ -420,7 +434,9 @@ def _setup_rechunk(
         return [copy_spec], intermediate, target
 
     else:
-        raise ValueError(f"Source must be a Zarr Array, Zarr Group, Dask Array or Xarray Dataset (not {type(source)}).")
+        raise ValueError(
+            f"Source must be a Zarr Array, Zarr Group, Dask Array or Xarray Dataset (not {type(source)})."
+        )
 
 
 def _setup_array_rechunk(
@@ -436,7 +452,11 @@ def _setup_array_rechunk(
     _validate_options(target_options)
     _validate_options(temp_options)
     shape = source_array.shape
-    source_chunks = source_array.chunksize if isinstance(source_array, dask.array.Array) else source_array.chunks
+    source_chunks = (
+        source_array.chunksize
+        if isinstance(source_array, dask.array.Array)
+        else source_array.chunks
+    )
     dtype = source_array.dtype
     itemsize = dtype.itemsize
 
@@ -493,7 +513,9 @@ def _setup_array_rechunk(
         # do intermediate store
         if temp_store_or_group is None:
             raise ValueError(
-                "A temporary store location must be provided{}.".format(f" (array={name})" if name else "")
+                "A temporary store location must be provided{}.".format(
+                    f" (array={name})" if name else ""
+                )
             )
         int_array = _zarr_empty(
             shape,
