@@ -221,7 +221,7 @@ def rechunk(
     Parameters
     ----------
     source : zarr.Array, zarr.Group, dask.array.Array, or xarray.Dataset
-        Named dimensions in the Zarr Arrays will be parsed according to the
+        Named dimensions in the Zarr arrays will be parsed according to the
         Xarray :ref:`xarray:zarr_encoding`.
     target_chunks : tuple, dict, or None
         The desired chunks of the array after rechunking. The structure
