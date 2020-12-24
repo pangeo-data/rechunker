@@ -395,7 +395,7 @@ def _setup_rechunk(
                 "You must specify ``target-chunks`` as a dict when rechunking a group."
             )
 
-        if temp_store:
+        if temp_store is not None:
             temp_group = zarr.group(temp_store)
         else:
             temp_group = None
