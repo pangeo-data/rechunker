@@ -1,5 +1,5 @@
 """Types definitions used by executors."""
-from typing import Any, Generic, Iterable, NamedTuple, Optional, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, NamedTuple, Optional, Tuple, TypeVar
 
 # TODO: replace with Protocols, once Python 3.8+ is required
 Array = Any
@@ -45,6 +45,27 @@ class CopySpec(NamedTuple):
     read: ArrayProxy
     intermediate: ArrayProxy
     write: ArrayProxy
+
+
+class Stage(NamedTuple):
+    """A single stage of a pipeline.
+
+    Attributes
+    ----------
+    func: Callable
+        A function to be called in this stage. Accepts either 0 or 1 arguments.
+    map_args: List, Optional
+        Arguments which will be mapped to the function
+    annotations: Dict, Optional
+        Hints provided to the scheduler
+    """
+
+    func: Callable
+    map_args: Optional[Iterable]
+    annotations: Dict
+
+
+MultiStagePipeline = Iterable[Stage]
 
 
 T = TypeVar("T")
