@@ -10,6 +10,7 @@ import xarray
 
 from rechunker.algorithm import rechunking_plan
 from rechunker.types import ArrayProxy, CopySpec, Executor
+from rechunker.executors.pipeline import specs_to_pipelines
 from xarray.backends.zarr import (
     encode_zarr_attr_value,
     encode_zarr_variable,
@@ -302,7 +303,8 @@ def rechunk(
         temp_store=temp_store,
         temp_options=temp_options,
     )
-    plan = executor.prepare_plan(copy_spec)
+    pipelines = specs_to_pipelines(copy_spec)
+    plan = executor.prepare_plan(pipelines)
     return Rechunked(executor, plan, source, intermediate, target)
 
 

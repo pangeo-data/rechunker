@@ -62,11 +62,12 @@ class Stage(NamedTuple):
 
     func: Callable
     map_args: Optional[Iterable]
-    annotations: Dict
+    # TODO: figure out how to make optional
+    # annotations: Dict
 
 
 MultiStagePipeline = Iterable[Stage]
-
+ParallelPipelines = Iterable[MultiStagePipeline]
 
 T = TypeVar("T")
 
@@ -81,7 +82,7 @@ class Executor(Generic[T]):
     # TODO: add support for multi-stage copying plans (in the form of a new,
     # dedicated method)
 
-    def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
+    def prepare_plan(self, pipeline: ParallelPipelines) -> T:
         """Convert copy specifications into a plan."""
         raise NotImplementedError
 
