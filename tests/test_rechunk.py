@@ -241,8 +241,19 @@ def test_rechunk_dask_array(
         requires_pywren("pywren"),
     ],
 )
-def test_rechunk_group(tmp_path, executor):
-    store_source = str(tmp_path / "source.zarr")
+@pytest.mark.parametrize("source_store", ["source.zarr", "mapper.source.zarr"])
+@pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
+@pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
+def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
+    if source_store.startswith("mapper"):
+        store_source = fsspec.get_mapper(str(tmp_path) + source_store)
+        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
+        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
+    else:
+        store_source = str(tmp_path / source_store)
+        target_store = str(tmp_path / target_store)
+        temp_store = str(tmp_path / temp_store)
+
     group = zarr.group(store_source)
     group.attrs["foo"] = "bar"
     # 800 byte chunks
@@ -250,9 +261,6 @@ def test_rechunk_group(tmp_path, executor):
     a.attrs["foo"] = "bar"
     b = group.ones("b", shape=(20,), chunks=(10,), dtype="f4")
     b.attrs["foo"] = "bar"
-
-    target_store = str(tmp_path / "target.zarr")
-    temp_store = str(tmp_path / "temp.zarr")
 
     max_mem = 1600  # should force a two-step plan for a
     target_chunks = {"a": (5, 10, 4), "b": (20,)}
