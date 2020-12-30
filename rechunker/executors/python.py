@@ -31,6 +31,8 @@ class PythonExecutor(Executor[Task]):
 
 
 def _execute_stage(stage: Stage) -> Task:
+    if stage.map_args is None:
+        return stage.func
     for f in map(stage.func, stage.map_args):
         pass
 

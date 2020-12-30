@@ -38,10 +38,11 @@ def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
             stage_tasks = []
             # iterate over the different stages of the array copying
             for stage in pipeline:
-                stage_task = StageTaskWrapper(stage)
-                print(stage.map_args)
-                stage_mapped = stage_task.map(stage.map_args)
-                stage_tasks.append(stage_mapped)
+                if stage.map_args is None:
+                    stage_task = StageTaskWrapper(stage)()
+                else:
+                    stage_task= StageTaskWrapper(stage).map(stage.map_args)
+                stage_tasks.append(stage_task)
             # create dependence between stages
             for n in range(len(stage_tasks) - 1):
                 stage_tasks[n + 1].set_upstream(stage_tasks[n])

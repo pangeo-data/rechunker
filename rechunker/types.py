@@ -57,7 +57,7 @@ class CopySpec(NamedTuple):
 
 
 class Stage(NamedTuple):
-    """A single stage of a pipeline.
+    """A Stage is when single function is mapped over multiple imputs.
 
     Attributes
     ----------
@@ -65,17 +65,18 @@ class Stage(NamedTuple):
         A function to be called in this stage. Accepts either 0 or 1 arguments.
     map_args: List, Optional
         Arguments which will be mapped to the function
-    annotations: Dict, Optional
-        Hints provided to the scheduler
     """
 
     func: Callable
-    map_args: Optional[Iterable]
-    # TODO: figure out how to make optional
-    # annotations: Dict
+    map_args: Optional[Iterable] = None
+    # TODO: figure out how to make optional, like for a dataclass
+    # annotations: Dict = {}
 
 
+# A MultiStagePipeline contains one or more stages, to be executed in sequence
 MultiStagePipeline = Iterable[Stage]
+
+# ParallelPipelines contains one or more MultiStagePipelines, to be executed in parallel
 ParallelPipelines = Iterable[MultiStagePipeline]
 
 T = TypeVar("T")
