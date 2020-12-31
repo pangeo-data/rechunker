@@ -17,9 +17,9 @@ print("python exec:", sys.executable)
 print("sys.path:", sys.path)
 
 
-import rechunker
 import sphinx_pangeo_theme  # noqa: F401
 
+import rechunker
 
 # -- Project information -----------------------------------------------------
 

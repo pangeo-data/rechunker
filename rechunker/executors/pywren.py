@@ -1,12 +1,11 @@
 from functools import partial
-
 from typing import Callable, Iterable, Tuple
-
-from rechunker.executors.util import chunk_keys, split_into_direct_copies
-from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 import pywren_ibm_cloud as pywren
 from pywren_ibm_cloud.executor import FunctionExecutor
+
+from rechunker.executors.util import chunk_keys, split_into_direct_copies
+from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 # PywrenExecutor represents delayed execution tasks as functions that require
 # a FunctionExecutor.

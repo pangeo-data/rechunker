@@ -1,5 +1,5 @@
 """Core rechunking algorithm stuff."""
-from typing import Sequence, Optional, List, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from rechunker.compat import prod
 

@@ -1,18 +1,17 @@
-from functools import partial
 import importlib
-import pytest
-
+from functools import partial
 from pathlib import Path
-import zarr
-import dask.array as dsa
+
 import dask
+import dask.array as dsa
 import dask.core
-import xarray
-import numpy
 import fsspec
+import numpy
+import pytest
+import xarray
+import zarr
 
 from rechunker import api
-
 
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
@@ -47,8 +46,7 @@ def test_invalid_executor():
 @pytest.mark.parametrize("source_chunks", [(10, 50)])
 @pytest.mark.parametrize(
     "target_chunks",
-    [{"a": (20, 10), "b": (20,)},
-     {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
+    [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
@@ -106,7 +104,7 @@ def test_rechunk_dataset(
         executor=executor,
     )
     assert isinstance(rechunked, api.Rechunked)
-    with dask.config.set(scheduler='single-threaded'):
+    with dask.config.set(scheduler="single-threaded"):
         rechunked.execute()
 
     # check zarr store directly
@@ -525,8 +523,8 @@ def test_no_intermediate_fused(tmp_path):
 def test_pywren_function_executor(tmp_path):
     pytest.importorskip("pywren_ibm_cloud")
     from rechunker.executors.pywren import (
-        pywren_local_function_executor,
         PywrenExecutor,
+        pywren_local_function_executor,
     )
 
     # Create a Pywren function exectutor that we manage ourselves

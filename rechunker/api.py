@@ -3,21 +3,21 @@ import html
 import textwrap
 from typing import Union
 
-import zarr
 import dask
 import dask.array
 import xarray
-
-from rechunker.algorithm import rechunking_plan
-from rechunker.types import ArrayProxy, CopySpec, Executor
-from rechunker.executors.pipeline import specs_to_pipelines
+import zarr
 from xarray.backends.zarr import (
+    DIMENSION_KEY,
     encode_zarr_attr_value,
     encode_zarr_variable,
     extract_zarr_variable_encoding,
-    DIMENSION_KEY,
 )
 from xarray.conventions import encode_dataset_coordinates
+
+from rechunker.algorithm import rechunking_plan
+from rechunker.executors.pipeline import specs_to_pipelines
+from rechunker.types import ArrayProxy, CopySpec, Executor
 
 
 class Rechunked:

@@ -1,13 +1,11 @@
 from functools import reduce
-from typing import Iterable, Tuple
-import uuid
+from typing import Iterable
 
 import dask
 import dask.array
 from dask.delayed import Delayed
 
-
-from rechunker.types import Stage, MultiStagePipeline, ParallelPipelines, Executor
+from rechunker.types import Executor, MultiStagePipeline, ParallelPipelines, Stage
 
 
 class DaskExecutor(Executor[Delayed]):
@@ -33,7 +31,7 @@ def _make_pipelines(pipelines: ParallelPipelines) -> Delayed:
 def _make_pipeline(pipeline: MultiStagePipeline) -> Delayed:
     stages_delayed = [_make_stage(stage) for stage in pipeline]
     d = reduce(_add_upstream, stages_delayed)
-    d.visualize(filename=f'{d.key}.svg')
+    d.visualize(filename=f"{d.key}.svg")
     return d
 
 
@@ -41,10 +39,10 @@ def _make_stage(stage: Stage) -> Delayed:
     if stage.map_args is None:
         return dask.delayed(stage.func)()
     else:
-        name = stage.func.__name__ + '-' + dask.base.tokenize(stage.func)
+        name = stage.func.__name__ + "-" + dask.base.tokenize(stage.func)
         dsk = {(name, i): (stage.func, arg) for i, arg in enumerate(stage.map_args)}
         # create a barrier
-        top_key = 'stage-' + dask.base.tokenize(stage.func, stage.map_args)
+        top_key = "stage-" + dask.base.tokenize(stage.func, stage.map_args)
         dsk[top_key] = (lambda *args: None, *list(dsk))
         return Delayed(top_key, dsk)
 
@@ -54,7 +52,7 @@ def _merge_task(*args):
 
 
 def _merge(*args: Iterable[Delayed]) -> Delayed:
-    name = 'merge-' + dask.base.tokenize(*args)
+    name = "merge-" + dask.base.tokenize(*args)
     keys = [arg.key for arg in args]
     new_task = (_merge_task, *keys)
     graph = dask.base.merge(*[dask.utils.ensure_dict(d.dask) for d in args])
@@ -73,23 +71,20 @@ def _add_upstream(first: Delayed, second: Delayed):
         new_top_layer[key] = ((lambda a, b: a), value, upstream_key)
 
     dsk_new = dask.base.merge(
-        dask.utils.ensure_dict(first.dask),
-        dask.utils.ensure_dict(dsk),
-        new_top_layer
+        dask.utils.ensure_dict(first.dask), dask.utils.ensure_dict(dsk), new_top_layer
     )
 
     return Delayed(second.key, dsk_new)
 
 
 def _get_top_layer(dsk):
-    if hasattr(dsk, 'layers'):
+    if hasattr(dsk, "layers"):
         # this is a HighLevelGraph
         top_layer_key = list(dsk.layers)[0]
         top_layer = dsk.layers[top_layer_key]
     else:
         # could this go wrong?
         first_key = next(iter(dsk))
-        first_task = first_key[0].split('-')[0]
-        top_layer = {k: v for k, v in dsk.items()
-                     if k[0].startswith(first_task + '-')}
+        first_task = first_key[0].split("-")[0]
+        top_layer = {k: v for k, v in dsk.items() if k[0].startswith(first_task + "-")}
     return top_layer

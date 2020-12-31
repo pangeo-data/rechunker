@@ -1,8 +1,6 @@
-from typing import Iterable, Tuple
-
 import prefect
 
-from rechunker.types import Stage, ParallelPipelines, Executor
+from rechunker.types import Executor, ParallelPipelines
 
 
 class PrefectExecutor(Executor[prefect.Flow]):
@@ -41,7 +39,7 @@ def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
                 if stage.map_args is None:
                     stage_task = StageTaskWrapper(stage)()
                 else:
-                    stage_task= StageTaskWrapper(stage).map(stage.map_args)
+                    stage_task = StageTaskWrapper(stage).map(stage.map_args)
                 stage_tasks.append(stage_task)
             # create dependence between stages
             for n in range(len(stage_tasks) - 1):
