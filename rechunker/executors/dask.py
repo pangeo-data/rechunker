@@ -1,6 +1,7 @@
 from functools import reduce
 from typing import Iterable, Tuple
 import uuid
+from pprint import pprint
 
 import dask
 import dask.array
@@ -55,6 +56,7 @@ def _merge(*args: Iterable[Delayed]) -> Delayed:
     new_task = (_merge_task, *keys)
     graph = dask.base.merge(*[dask.utils.ensure_dict(d.dask) for d in args])
     graph[name] = new_task
+    pprint(graph)
     return Delayed(name, graph)
 
 

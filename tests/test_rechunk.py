@@ -50,7 +50,7 @@ def test_invalid_executor():
     [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("executor", ["dask"])
+@pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset(
@@ -107,6 +107,13 @@ def test_rechunk_dataset(
     assert isinstance(rechunked, api.Rechunked)
     rechunked.execute()
 
+    # check zarr store directly
+    zstore = zarr.open_group(target_store)
+    for aname in zstore:
+        arr = zstore[aname]
+        print(aname)
+        print(arr.info)
+
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
     assert dst.a.dtype == options["a"]["dtype"]
@@ -123,6 +130,8 @@ def test_rechunk_dataset(
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
+    print(ds.compute())
+    print(dst.compute())
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
 
@@ -476,36 +485,6 @@ def test_rechunk_invalid_source(tmp_path):
     ):
         api.rechunk(
             [[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path
-        )
-
-
-@pytest.mark.parametrize(
-    "source,target_chunks",
-    [
-        (sample_xarray_dataset(), {"a": (10, 5, 4), "b": (100,)}),
-        (dsa.ones((20, 10), chunks=(5, 5)), (10, 10)),
-    ],
-)
-@pytest.mark.parametrize(
-    "executor",
-    [
-        "python",
-        requires_beam("beam"),
-        requires_prefect("prefect"),
-        requires_pywren("pywren"),
-    ],
-)
-def test_unsupported_executor(tmp_path, source, target_chunks, executor):
-    with pytest.raises(
-        NotImplementedError, match="Executor type .* not supported for source",
-    ):
-        api.rechunk(
-            source,
-            target_chunks=target_chunks,
-            max_mem=1600,
-            target_store=str(tmp_path / "target.zarr"),
-            temp_store=str(tmp_path / "temp.zarr"),
-            executor=executor,
         )
 
 
