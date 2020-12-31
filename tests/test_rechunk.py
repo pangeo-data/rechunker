@@ -110,12 +110,8 @@ def test_rechunk_dataset(
         rechunked.execute()
 
     # check zarr store directly
-    zstore = zarr.open_group(target_store)
-    print(zstore.tree())
-    # for aname in zstore:
-    #     arr = zstore[aname]
-    #     print(aname)
-    #     print(arr.info)
+    # zstore = zarr.open_group(target_store)
+    # print(zstore.tree())
 
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
@@ -133,8 +129,6 @@ def test_rechunk_dataset(
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
-    print(ds.compute())
-    print(dst.compute())
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
 
