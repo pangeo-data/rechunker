@@ -47,7 +47,8 @@ def test_invalid_executor():
 @pytest.mark.parametrize("source_chunks", [(10, 50)])
 @pytest.mark.parametrize(
     "target_chunks",
-    [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
+    [{"a": (20, 10), "b": (20,)},
+     {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
@@ -105,14 +106,16 @@ def test_rechunk_dataset(
         executor=executor,
     )
     assert isinstance(rechunked, api.Rechunked)
-    rechunked.execute()
+    with dask.config.set(scheduler='single-threaded'):
+        rechunked.execute()
 
     # check zarr store directly
     zstore = zarr.open_group(target_store)
-    for aname in zstore:
-        arr = zstore[aname]
-        print(aname)
-        print(arr.info)
+    print(zstore.tree())
+    # for aname in zstore:
+    #     arr = zstore[aname]
+    #     print(aname)
+    #     print(arr.info)
 
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
