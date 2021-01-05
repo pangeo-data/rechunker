@@ -16,8 +16,7 @@ from xarray.backends.zarr import (
 from xarray.conventions import encode_dataset_coordinates
 
 from rechunker.algorithm import rechunking_plan
-from rechunker.executors.pipeline import specs_to_pipelines
-from rechunker.types import ArrayProxy, CopySpec, Executor
+from rechunker.types import ArrayProxy, CopySpec, CopySpecExecutor
 
 
 class Rechunked:
@@ -179,25 +178,25 @@ def _validate_options(options):
             )
 
 
-def _get_executor(name: str) -> Executor:
+def _get_executor(name: str) -> CopySpecExecutor:
     # converts a string name into a Executor instance
     # imports are conditional to avoid hard dependencies
     if name.lower() == "dask":
-        from rechunker.executors.dask import DaskExecutor
+        from rechunker.executors.dask import DaskCopySpecExecutor
 
-        return DaskExecutor()
+        return DaskCopySpecExecutor()
     elif name.lower() == "beam":
         from rechunker.executors.beam import BeamExecutor
 
         return BeamExecutor()
     elif name.lower() == "prefect":
-        from rechunker.executors.prefect import PrefectExecutor
+        from rechunker.executors.prefect import PrefectCopySpecExecutor
 
-        return PrefectExecutor()
+        return PrefectCopySpecExecutor()
     elif name.lower() == "python":
-        from rechunker.executors.python import PythonExecutor
+        from rechunker.executors.python import PythonCopySpecExecutor
 
-        return PythonExecutor()
+        return PythonCopySpecExecutor()
     elif name.lower() == "pywren":
         from rechunker.executors.pywren import PywrenExecutor
 
@@ -214,7 +213,7 @@ def rechunk(
     target_options=None,
     temp_store=None,
     temp_options=None,
-    executor: Union[str, Executor] = "dask",
+    executor: Union[str, CopySpecExecutor] = "dask",
 ) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
@@ -296,8 +295,7 @@ def rechunk(
         temp_store=temp_store,
         temp_options=temp_options,
     )
-    pipelines = specs_to_pipelines(copy_spec)
-    plan = executor.prepare_plan(pipelines)
+    plan = executor.prepare_plan(copy_spec)
     return Rechunked(executor, plan, source, intermediate, target)
 
 

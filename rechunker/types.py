@@ -82,17 +82,30 @@ ParallelPipelines = Iterable[MultiStagePipeline]
 T = TypeVar("T")
 
 
-class Executor(Generic[T]):
-    """Base class for execution engines.
+class PipelineExecutor(Generic[T]):
+    """Base class for pipeline-based execution engines.
 
     Executors prepare and execute scheduling plans, in whatever form is most
     convenient for users of that executor.
     """
 
-    # TODO: add support for multi-stage copying plans (in the form of a new,
-    # dedicated method)
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> T:
+        """Convert pipeline specifications into a plan."""
+        raise NotImplementedError
 
-    def prepare_plan(self, pipeline: ParallelPipelines) -> T:
+    def execute_plan(self, plan: T, **kwargs):
+        """Execute a plan."""
+        raise NotImplementedError
+
+
+class CopySpecExecutor(Generic[T]):
+    """Base class for copy-spec execution engines.
+
+    Executors prepare and execute scheduling plans, in whatever form is most
+    convenient for users of that executor.
+    """
+
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         """Convert copy specifications into a plan."""
         raise NotImplementedError
 

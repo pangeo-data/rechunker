@@ -1,6 +1,6 @@
 import itertools
 import math
-from typing import Iterable, Iterator, NamedTuple, Tuple
+from typing import Iterable, Iterator, NamedTuple, Tuple, Generic, TypeVar
 
 import dask
 import numpy as np
@@ -51,3 +51,17 @@ def spec_to_pipeline(spec: CopySpec) -> MultiStagePipeline:
 
 def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
     return [spec_to_pipeline(spec) for spec in specs]
+
+
+T = TypeVar("T")
+
+
+class CopySpecToPipelinesMixin:
+
+    def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
+        pipelines = specs_to_pipelines(specs)
+        return self.pipelines_to_plan(pipelines)
+
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> T:
+        """Transform ParallelPiplines to an execution plan"""
+        raise NotImplementedError

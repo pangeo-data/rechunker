@@ -1,14 +1,15 @@
 from functools import partial
 from typing import Callable, Iterable
 
-from rechunker.types import Executor, ParallelPipelines, Stage
+from rechunker.types import PipelineExecutor, ParallelPipelines, Stage
+from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 
 # PythonExecutor represents delayed execution tasks as functions that require
 # no arguments.
 Task = Callable[[], None]
 
 
-class PythonExecutor(Executor[Task]):
+class PythonPipelineExecutor(PipelineExecutor[Task]):
     """An execution engine based on Python loops.
 
     Supports copying between any arrays that implement ``__getitem__`` and
@@ -17,7 +18,7 @@ class PythonExecutor(Executor[Task]):
     Execution plans for PythonExecutor are functions that accept no arguments.
     """
 
-    def prepare_plan(self, pipelines: ParallelPipelines) -> Task:
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Task:
         tasks = []
         for pipeline in pipelines:
             for stage in pipeline:
@@ -26,6 +27,10 @@ class PythonExecutor(Executor[Task]):
 
     def execute_plan(self, plan: Task, **kwargs):
         plan()
+
+
+class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
+    pass
 
 
 def _execute_stage(stage: Stage) -> Task:

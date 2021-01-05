@@ -1,9 +1,10 @@
 import prefect
 
-from rechunker.types import Executor, ParallelPipelines
+from rechunker.types import PipelineExecutor, ParallelPipelines
+from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 
 
-class PrefectExecutor(Executor[prefect.Flow]):
+class PrefectPipelineExecutor(PipelineExecutor[prefect.Flow]):
     """An execution engine based on Prefect.
 
     Supports copying between any arrays that implement ``__getitem__`` and
@@ -13,11 +14,15 @@ class PrefectExecutor(Executor[prefect.Flow]):
     Execution plans for PrefectExecutor are prefect.Flow objects.
     """
 
-    def prepare_plan(self, pipelines: ParallelPipelines) -> prefect.Flow:
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> prefect.Flow:
         return _make_flow(pipelines)
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
         return plan.run(**kwargs)
+
+
+class PrefectCopySpecExecutor(PrefectPipelineExecutor, CopySpecToPipelinesMixin):
+    pass
 
 
 class StageTaskWrapper(prefect.Task):

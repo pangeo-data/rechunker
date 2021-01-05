@@ -8,7 +8,7 @@ from dask.delayed import Delayed
 from rechunker.types import Executor, MultiStagePipeline, ParallelPipelines, Stage
 
 
-class DaskExecutor(Executor[Delayed]):
+class DaskExecutor(PipelineExecutor[Delayed]):
     """An execution engine based on dask.
 
     Supports zarr and dask arrays as inputs. Outputs must be zarr arrays.
