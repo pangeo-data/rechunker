@@ -41,7 +41,6 @@ def _make_pipelines(pipelines: ParallelPipelines) -> Delayed:
 def _make_pipeline(pipeline: MultiStagePipeline) -> Delayed:
     stages_delayed = [_make_stage(stage) for stage in pipeline]
     d = reduce(_add_upstream, stages_delayed)
-    d.visualize(filename=f"{d.key}.svg")
     return d
 
 
