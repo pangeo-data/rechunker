@@ -5,10 +5,16 @@ import dask
 import dask.array
 from dask.delayed import Delayed
 
-from rechunker.types import Executor, MultiStagePipeline, ParallelPipelines, Stage
+from rechunker.types import (
+    PipelineExecutor,
+    MultiStagePipeline,
+    ParallelPipelines,
+    Stage,
+)
+from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 
 
-class DaskExecutor(PipelineExecutor[Delayed]):
+class DaskPipelineExecutor(PipelineExecutor[Delayed]):
     """An execution engine based on dask.
 
     Supports zarr and dask arrays as inputs. Outputs must be zarr arrays.
@@ -16,11 +22,15 @@ class DaskExecutor(PipelineExecutor[Delayed]):
     Execution plans for DaskExecutors are dask.delayed objects.
     """
 
-    def prepare_plan(self, pipelines: ParallelPipelines) -> Delayed:
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Delayed:
         return _make_pipelines(pipelines)
 
     def execute_plan(self, plan: Delayed, **kwargs):
         return plan.compute(**kwargs)
+
+
+class DaskCopySpecExecutor(DaskPipelineExecutor, CopySpecToPipelinesMixin):
+    pass
 
 
 def _make_pipelines(pipelines: ParallelPipelines) -> Delayed:

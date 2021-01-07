@@ -1,12 +1,18 @@
 import itertools
 import math
-from typing import Iterable, Iterator, NamedTuple, Tuple, Generic, TypeVar
+from typing import Iterable, Iterator, Tuple, TypeVar
 
 import dask
 import numpy as np
 
-from rechunker.types import (CopySpec, MultiStagePipeline, ParallelPipelines,
-                             ReadableArray, Stage, WriteableArray)
+from rechunker.types import (
+    CopySpec,
+    MultiStagePipeline,
+    ParallelPipelines,
+    ReadableArray,
+    Stage,
+    WriteableArray,
+)
 
 
 def chunk_keys(
@@ -26,15 +32,18 @@ def chunk_keys(
         )
 
 
-def copy_stage(source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]) -> Stage:
+def copy_stage(
+    source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
+) -> Stage:
     # use a closure to eliminate extra arguments
     def _copy_chunk(chunk_key):
         # calling np.asarray here allows the source to be a dask array
         # TODO: could we asyncify this to operate in a streaming fashion
         # make sure this is not happening inside a dask scheduler
-        with dask.config.set(scheduler='single-threaded'):
+        with dask.config.set(scheduler="single-threaded"):
             data = np.asarray(source[chunk_key])
         target[chunk_key] = data
+
     keys = list(chunk_keys(source.shape, chunks))
     return Stage(_copy_chunk, keys)
 
@@ -44,8 +53,12 @@ def spec_to_pipeline(spec: CopySpec) -> MultiStagePipeline:
     if spec.intermediate.array is None:
         pipeline.append(copy_stage(spec.read.array, spec.write.array, spec.read.chunks))
     else:
-        pipeline.append(copy_stage(spec.read.array, spec.intermediate.array, spec.read.chunks))
-        pipeline.append(copy_stage(spec.intermediate.array, spec.write.array, spec.write.chunks))
+        pipeline.append(
+            copy_stage(spec.read.array, spec.intermediate.array, spec.read.chunks)
+        )
+        pipeline.append(
+            copy_stage(spec.intermediate.array, spec.write.array, spec.write.chunks)
+        )
     return pipeline
 
 
@@ -57,7 +70,6 @@ T = TypeVar("T")
 
 
 class CopySpecToPipelinesMixin:
-
     def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         pipelines = specs_to_pipelines(specs)
         return self.pipelines_to_plan(pipelines)
