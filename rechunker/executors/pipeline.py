@@ -5,8 +5,14 @@ from typing import Iterable, Iterator, Tuple, TypeVar
 import dask
 import numpy as np
 
-from rechunker.types import (CopySpec, MultiStagePipeline, ParallelPipelines,
-                             ReadableArray, Stage, WriteableArray)
+from rechunker.types import (
+    CopySpec,
+    MultiStagePipeline,
+    ParallelPipelines,
+    ReadableArray,
+    Stage,
+    WriteableArray,
+)
 
 
 def chunk_keys(
@@ -34,6 +40,7 @@ def copy_stage(
         # calling np.asarray here allows the source to be a dask array
         # TODO: could we asyncify this to operate in a streaming fashion
         # make sure this is not happening inside a dask scheduler
+        print(f"_copy_chunk({chunk_key})")
         with dask.config.set(scheduler="single-threaded"):
             data = np.asarray(source[chunk_key])
         target[chunk_key] = data
@@ -60,10 +67,12 @@ def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
     return [spec_to_pipeline(spec) for spec in specs]
 
 
+# TODO: understand how to make these type annotations work with a mixin
 T = TypeVar("T")
 
 
 class CopySpecToPipelinesMixin:
+    # This signature doesn't work as a mixin because we don't know what type T is
     def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         pipelines = specs_to_pipelines(specs)
         return self.pipelines_to_plan(pipelines)

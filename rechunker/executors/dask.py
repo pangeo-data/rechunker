@@ -6,8 +6,12 @@ import dask.array
 from dask.delayed import Delayed
 
 from rechunker.executors.pipeline import CopySpecToPipelinesMixin
-from rechunker.types import (MultiStagePipeline, ParallelPipelines,
-                             PipelineExecutor, Stage)
+from rechunker.types import (
+    MultiStagePipeline,
+    ParallelPipelines,
+    PipelineExecutor,
+    Stage,
+)
 
 
 class DaskPipelineExecutor(PipelineExecutor[Delayed]):

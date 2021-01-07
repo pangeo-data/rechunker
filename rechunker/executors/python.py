@@ -2,7 +2,7 @@ from functools import partial
 from typing import Callable, Iterable
 
 from rechunker.executors.pipeline import CopySpecToPipelinesMixin
-from rechunker.types import ParallelPipelines, PipelineExecutor, Stage
+from rechunker.types import ParallelPipelines, PipelineExecutor
 
 # PythonExecutor represents delayed execution tasks as functions that require
 # no arguments.
@@ -22,7 +22,11 @@ class PythonPipelineExecutor(PipelineExecutor[Task]):
         tasks = []
         for pipeline in pipelines:
             for stage in pipeline:
-                tasks.append(partial(_execute_stage, stage))
+                if stage.map_args is None:
+                    tasks.append(stage.func)
+                else:
+                    for arg in stage.map_args:
+                        tasks.append(partial(stage.func, arg))
         return partial(_execute_all, tasks)
 
     def execute_plan(self, plan: Task, **kwargs):
@@ -31,13 +35,6 @@ class PythonPipelineExecutor(PipelineExecutor[Task]):
 
 class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
     pass
-
-
-def _execute_stage(stage: Stage) -> Task:
-    if stage.map_args is None:
-        return stage.func
-    for f in map(stage.func, stage.map_args):
-        pass
 
 
 def _execute_all(tasks: Iterable[Task]) -> None:
