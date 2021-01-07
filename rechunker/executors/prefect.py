@@ -1,7 +1,7 @@
 import prefect
 
-from rechunker.types import PipelineExecutor, ParallelPipelines
 from rechunker.executors.pipeline import CopySpecToPipelinesMixin
+from rechunker.types import ParallelPipelines, PipelineExecutor
 
 
 class PrefectPipelineExecutor(PipelineExecutor[prefect.Flow]):

@@ -1,8 +1,8 @@
 from functools import partial
 from typing import Callable, Iterable
 
-from rechunker.types import PipelineExecutor, ParallelPipelines, Stage
 from rechunker.executors.pipeline import CopySpecToPipelinesMixin
+from rechunker.types import ParallelPipelines, PipelineExecutor, Stage
 
 # PythonExecutor represents delayed execution tasks as functions that require
 # no arguments.

@@ -5,14 +5,8 @@ from typing import Iterable, Iterator, Tuple, TypeVar
 import dask
 import numpy as np
 
-from rechunker.types import (
-    CopySpec,
-    MultiStagePipeline,
-    ParallelPipelines,
-    ReadableArray,
-    Stage,
-    WriteableArray,
-)
+from rechunker.types import (CopySpec, MultiStagePipeline, ParallelPipelines,
+                             ReadableArray, Stage, WriteableArray)
 
 
 def chunk_keys(

@@ -3,11 +3,8 @@ from typing import Iterable, Iterator, Mapping, Tuple
 
 import apache_beam as beam
 
-from rechunker.executors.util import (
-    DirectCopySpec,
-    chunk_keys,
-    split_into_direct_copies,
-)
+from rechunker.executors.util import (DirectCopySpec, chunk_keys,
+                                      split_into_direct_copies)
 from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 

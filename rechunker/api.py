@@ -7,12 +7,9 @@ import dask
 import dask.array
 import xarray
 import zarr
-from xarray.backends.zarr import (
-    DIMENSION_KEY,
-    encode_zarr_attr_value,
-    encode_zarr_variable,
-    extract_zarr_variable_encoding,
-)
+from xarray.backends.zarr import (DIMENSION_KEY, encode_zarr_attr_value,
+                                  encode_zarr_variable,
+                                  extract_zarr_variable_encoding)
 from xarray.conventions import encode_dataset_coordinates
 
 from rechunker.algorithm import rechunking_plan

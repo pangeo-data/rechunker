@@ -1,14 +1,6 @@
 """Types definitions used by executors."""
-from typing import (
-    Any,
-    Callable,
-    Generic,
-    Iterable,
-    NamedTuple,
-    Optional,
-    Tuple,
-    TypeVar,
-)
+from typing import (Any, Callable, Generic, Iterable, NamedTuple, Optional,
+                    Tuple, TypeVar)
 
 # TODO: replace with Protocols, once Python 3.8+ is required
 Array = Any

@@ -522,10 +522,8 @@ def test_no_intermediate_fused(tmp_path):
 
 def test_pywren_function_executor(tmp_path):
     pytest.importorskip("pywren_ibm_cloud")
-    from rechunker.executors.pywren import (
-        PywrenExecutor,
-        pywren_local_function_executor,
-    )
+    from rechunker.executors.pywren import (PywrenExecutor,
+                                            pywren_local_function_executor)
 
     # Create a Pywren function exectutor that we manage ourselves
     # and pass in to rechunker's PywrenExecutor
