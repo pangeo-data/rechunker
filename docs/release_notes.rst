@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+v0.3.3 - 2020-01-15
+-------------------
+
+- Fixed bug preventing specification of ``target_chunks`` as dict with Xarray inputs.
+  By `Ryan Abernathey <https://github.com/rabernat>`_
+- Fixed bug in interaction with fsspec stores.
+  By `Landung Setiawan <https://github.com/lsetiawan>`_
+
+
 v0.3.2 - 2020-12-02
 -------------------
 
