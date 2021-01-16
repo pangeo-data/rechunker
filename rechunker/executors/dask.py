@@ -52,7 +52,12 @@ def _make_stage(stage: Stage) -> Delayed:
         dsk = {(name, i): (stage.func, arg) for i, arg in enumerate(stage.map_args)}
         # create a barrier
         top_key = "stage-" + dask.base.tokenize(stage.func, stage.map_args)
-        dsk[top_key] = (lambda *args: None, *list(dsk))
+
+        def merge_all(*args):
+            # this function is dependent on its arguments but doesn't actually do anything
+            return None
+
+        dsk.update({top_key: (merge_all, *list(dsk))})
         return Delayed(top_key, dsk)
 
 
@@ -62,9 +67,13 @@ def _merge_task(*args):
 
 def _merge(*args: Iterable[Delayed]) -> Delayed:
     name = "merge-" + dask.base.tokenize(*args)
-    keys = [arg.key for arg in args]
+    # mypy doesn't like arg.key
+    keys = [getattr(arg, "key") for arg in args]
     new_task = (_merge_task, *keys)
-    graph = dask.base.merge(*[dask.utils.ensure_dict(d.dask) for d in args])
+    # mypy doesn't like arg.dask
+    graph = dask.base.merge(
+        *[dask.utils.ensure_dict(getattr(arg, "dask")) for arg in args]
+    )
     graph[name] = new_task
     d = Delayed(name, graph)
     return d

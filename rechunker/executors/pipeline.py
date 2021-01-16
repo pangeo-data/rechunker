@@ -1,12 +1,13 @@
 import itertools
 import math
-from typing import Iterable, Iterator, Tuple, TypeVar
+from typing import Iterable, Iterator, Tuple, TypeVar, Any
 
 import dask
 import numpy as np
 
 from rechunker.types import (
     CopySpec,
+    CopySpecExecutor,
     MultiStagePipeline,
     ParallelPipelines,
     ReadableArray,
@@ -71,12 +72,12 @@ def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
 T = TypeVar("T")
 
 
-class CopySpecToPipelinesMixin:
+class CopySpecToPipelinesMixin(CopySpecExecutor):
     # This signature doesn't work as a mixin because we don't know what type T is
     def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         pipelines = specs_to_pipelines(specs)
         return self.pipelines_to_plan(pipelines)
 
-    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> T:
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Any:
         """Transform ParallelPiplines to an execution plan"""
         raise NotImplementedError
