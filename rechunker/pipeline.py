@@ -5,7 +5,7 @@ from typing import Iterable, Iterator, Tuple, TypeVar, Any
 import dask
 import numpy as np
 
-from rechunker.types import (
+from .types import (
     CopySpec,
     CopySpecExecutor,
     MultiStagePipeline,
@@ -14,6 +14,10 @@ from rechunker.types import (
     Stage,
     WriteableArray,
 )
+
+from .executors.python import PythonPipelineExecutor
+from .executors.dask import DaskPipelineExecutor
+from .executors.prefect import PrefectPipelineExecutor
 
 
 def chunk_keys(
@@ -68,12 +72,10 @@ def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
     return [spec_to_pipeline(spec) for spec in specs]
 
 
-# TODO: understand how to make these type annotations work with a mixin
 T = TypeVar("T")
 
 
 class CopySpecToPipelinesMixin(CopySpecExecutor):
-    # This signature doesn't work as a mixin because we don't know what type T is
     def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         pipelines = specs_to_pipelines(specs)
         return self.pipelines_to_plan(pipelines)
@@ -81,3 +83,15 @@ class CopySpecToPipelinesMixin(CopySpecExecutor):
     def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Any:
         """Transform ParallelPiplines to an execution plan"""
         raise NotImplementedError
+
+
+class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
+    pass
+
+
+class DaskCopySpecExecutor(DaskPipelineExecutor, CopySpecToPipelinesMixin):
+    pass
+
+
+class PrefectCopySpecExecutor(PrefectPipelineExecutor, CopySpecToPipelinesMixin):
+    pass

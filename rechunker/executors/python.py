@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Callable, Iterable
 
-from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 from rechunker.types import ParallelPipelines, PipelineExecutor
 
 # PythonExecutor represents delayed execution tasks as functions that require
@@ -31,10 +30,6 @@ class PythonPipelineExecutor(PipelineExecutor[Task]):
 
     def execute_plan(self, plan: Task, **kwargs):
         plan()
-
-
-class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
 
 
 def _execute_all(tasks: Iterable[Task]) -> None:

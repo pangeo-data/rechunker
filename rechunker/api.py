@@ -182,7 +182,7 @@ def _get_executor(name: str) -> CopySpecExecutor:
     # converts a string name into a Executor instance
     # imports are conditional to avoid hard dependencies
     if name.lower() == "dask":
-        from rechunker.executors.dask import DaskCopySpecExecutor
+        from rechunker.pipeline import DaskCopySpecExecutor
 
         return DaskCopySpecExecutor()
     elif name.lower() == "beam":
@@ -190,11 +190,11 @@ def _get_executor(name: str) -> CopySpecExecutor:
 
         return BeamExecutor()
     elif name.lower() == "prefect":
-        from rechunker.executors.prefect import PrefectCopySpecExecutor
+        from rechunker.pipeline import PrefectCopySpecExecutor
 
         return PrefectCopySpecExecutor()
     elif name.lower() == "python":
-        from rechunker.executors.python import PythonCopySpecExecutor
+        from rechunker.pipeline import PythonCopySpecExecutor
 
         return PythonCopySpecExecutor()
     elif name.lower() == "pywren":

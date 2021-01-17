@@ -5,7 +5,6 @@ import dask
 import dask.array
 from dask.delayed import Delayed
 
-from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 from rechunker.types import (
     MultiStagePipeline,
     ParallelPipelines,
@@ -27,10 +26,6 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
 
     def execute_plan(self, plan: Delayed, **kwargs):
         return plan.compute(**kwargs)
-
-
-class DaskCopySpecExecutor(DaskPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
 
 
 def _make_pipelines(pipelines: ParallelPipelines) -> Delayed:

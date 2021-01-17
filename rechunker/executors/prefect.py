@@ -1,6 +1,5 @@
 import prefect
 
-from rechunker.executors.pipeline import CopySpecToPipelinesMixin
 from rechunker.types import ParallelPipelines, PipelineExecutor
 
 
@@ -19,10 +18,6 @@ class PrefectPipelineExecutor(PipelineExecutor[prefect.Flow]):
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
         return plan.run(**kwargs)
-
-
-class PrefectCopySpecExecutor(PrefectPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
 
 
 class StageTaskWrapper(prefect.Task):
