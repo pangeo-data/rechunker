@@ -37,7 +37,7 @@ def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
             # iterate over the different stages of the array copying
             for stage in pipeline:
                 if stage.map_args is None:
-                    stage_task = StageTaskWrapper(stage)()
+                    stage_task = StageTaskWrapper(stage)
                 else:
                     stage_task = StageTaskWrapper(stage).map(stage.map_args)
                 stage_tasks.append(stage_task)
