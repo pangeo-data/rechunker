@@ -1,10 +1,13 @@
 import itertools
 import math
-from typing import Iterable, Iterator, Tuple, TypeVar, Any
+from typing import Any, Iterable, Iterator, Tuple, TypeVar
 
 import dask
 import numpy as np
 
+from .executors.dask import DaskPipelineExecutor
+from .executors.prefect import PrefectPipelineExecutor
+from .executors.python import PythonPipelineExecutor
 from .types import (
     CopySpec,
     CopySpecExecutor,
@@ -14,10 +17,6 @@ from .types import (
     Stage,
     WriteableArray,
 )
-
-from .executors.python import PythonPipelineExecutor
-from .executors.dask import DaskPipelineExecutor
-from .executors.prefect import PrefectPipelineExecutor
 
 
 def chunk_keys(
