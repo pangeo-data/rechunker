@@ -26,22 +26,20 @@ def example_pipeline(tmpdir_factory):
 
     stage1 = Stage(func1, ["a", "b", 3])
 
-    def func2():
-        # check that the previous two stages ran ok
-        for fname in ["func0.log", "func1_a.log", "func1_b.log", "func1_3.log"]:
-            assert tmp.join(fname).check(file=True)
-
     # MultiStagePipeline
     pipeline = [stage0, stage1]
     # ParallelPipelines
     pipelines = [pipeline]
-    return pipelines
+    return pipelines, tmp
 
 
 @pytest.mark.parametrize(
     "Executor", [PythonPipelineExecutor, DaskPipelineExecutor, PrefectPipelineExecutor]
 )
 def test_pipeline(example_pipeline, Executor):
+    pipeline, tmpdir = example_pipeline
     executor = Executor()
-    plan = executor.pipelines_to_plan(example_pipeline)
+    plan = executor.pipelines_to_plan(pipeline)
     executor.execute_plan(plan)
+    for fname in ["func0.log", "func1_a.log", "func1_b.log", "func1_3.log"]:
+        assert tmpdir.join(fname).check(file=True)

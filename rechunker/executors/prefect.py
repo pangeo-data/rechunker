@@ -17,16 +17,26 @@ class PrefectPipelineExecutor(PipelineExecutor[prefect.Flow]):
         return _make_flow(pipelines)
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
-        return plan.run(**kwargs)
+        state = plan.run(**kwargs)
+        return state
 
 
-class StageTaskWrapper(prefect.Task):
+class MappedTaskWrapper(prefect.Task):
     def __init__(self, stage, **kwargs):
         self.stage = stage
         super().__init__(**kwargs)
 
     def run(self, key):
         return self.stage.func(key)
+
+
+class SingleTaskWrapper(prefect.Task):
+    def __init__(self, stage, **kwargs):
+        self.stage = stage
+        super().__init__(**kwargs)
+
+    def run(self):
+        return self.stage.func()
 
 
 def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
@@ -37,9 +47,9 @@ def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
             # iterate over the different stages of the array copying
             for stage in pipeline:
                 if stage.map_args is None:
-                    stage_task = StageTaskWrapper(stage)
+                    stage_task = SingleTaskWrapper(stage)
                 else:
-                    stage_task = StageTaskWrapper(stage).map(stage.map_args)
+                    stage_task = MappedTaskWrapper(stage).map(stage.map_args)
                 stage_tasks.append(stage_task)
             # create dependence between stages
             for n in range(len(stage_tasks) - 1):
