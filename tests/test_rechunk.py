@@ -1,18 +1,17 @@
-from functools import partial
 import importlib
-import pytest
-
+from functools import partial
 from pathlib import Path
-import zarr
-import dask.array as dsa
+
 import dask
+import dask.array as dsa
 import dask.core
-import xarray
-import numpy
 import fsspec
+import numpy
+import pytest
+import xarray
+import zarr
 
 from rechunker import api
-
 
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
@@ -50,7 +49,7 @@ def test_invalid_executor():
     [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("executor", ["dask"])
+@pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset(
@@ -105,7 +104,12 @@ def test_rechunk_dataset(
         executor=executor,
     )
     assert isinstance(rechunked, api.Rechunked)
-    rechunked.execute()
+    with dask.config.set(scheduler="single-threaded"):
+        rechunked.execute()
+
+    # check zarr store directly
+    # zstore = zarr.open_group(target_store)
+    # print(zstore.tree())
 
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
@@ -479,36 +483,6 @@ def test_rechunk_invalid_source(tmp_path):
         )
 
 
-@pytest.mark.parametrize(
-    "source,target_chunks",
-    [
-        (sample_xarray_dataset(), {"a": (10, 5, 4), "b": (100,)}),
-        (dsa.ones((20, 10), chunks=(5, 5)), (10, 10)),
-    ],
-)
-@pytest.mark.parametrize(
-    "executor",
-    [
-        "python",
-        requires_beam("beam"),
-        requires_prefect("prefect"),
-        requires_pywren("pywren"),
-    ],
-)
-def test_unsupported_executor(tmp_path, source, target_chunks, executor):
-    with pytest.raises(
-        NotImplementedError, match="Executor type .* not supported for source",
-    ):
-        api.rechunk(
-            source,
-            target_chunks=target_chunks,
-            max_mem=1600,
-            target_store=str(tmp_path / "target.zarr"),
-            temp_store=str(tmp_path / "temp.zarr"),
-            executor=executor,
-        )
-
-
 def test_rechunk_no_target_chunks(rechunk_args):
     rechunk_args = dict(rechunk_args)
     if _is_collection(rechunk_args["source"]):
@@ -549,8 +523,8 @@ def test_no_intermediate_fused(tmp_path):
 def test_pywren_function_executor(tmp_path):
     pytest.importorskip("pywren_ibm_cloud")
     from rechunker.executors.pywren import (
-        pywren_local_function_executor,
         PywrenExecutor,
+        pywren_local_function_executor,
     )
 
     # Create a Pywren function exectutor that we manage ourselves

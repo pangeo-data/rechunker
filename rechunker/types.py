@@ -1,5 +1,14 @@
 """Types definitions used by executors."""
-from typing import Any, Generic, Iterable, NamedTuple, Optional, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+)
 
 # TODO: replace with Protocols, once Python 3.8+ is required
 Array = Any
@@ -47,18 +56,54 @@ class CopySpec(NamedTuple):
     write: ArrayProxy
 
 
+class Stage(NamedTuple):
+    """A Stage is when single function is mapped over multiple imputs.
+
+    Attributes
+    ----------
+    func: Callable
+        A function to be called in this stage. Accepts either 0 or 1 arguments.
+    map_args: List, Optional
+        Arguments which will be mapped to the function
+    """
+
+    func: Callable
+    map_args: Optional[Iterable] = None
+    # TODO: figure out how to make optional, like for a dataclass
+    # annotations: Dict = {}
+
+
+# A MultiStagePipeline contains one or more stages, to be executed in sequence
+MultiStagePipeline = Iterable[Stage]
+
+# ParallelPipelines contains one or more MultiStagePipelines, to be executed in parallel
+ParallelPipelines = Iterable[MultiStagePipeline]
+
 T = TypeVar("T")
 
 
-class Executor(Generic[T]):
-    """Base class for execution engines.
+class PipelineExecutor(Generic[T]):
+    """Base class for pipeline-based execution engines.
 
     Executors prepare and execute scheduling plans, in whatever form is most
     convenient for users of that executor.
     """
 
-    # TODO: add support for multi-stage copying plans (in the form of a new,
-    # dedicated method)
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> T:
+        """Convert pipeline specifications into a plan."""
+        raise NotImplementedError
+
+    def execute_plan(self, plan: T, **kwargs):
+        """Execute a plan."""
+        raise NotImplementedError
+
+
+class CopySpecExecutor(Generic[T]):
+    """Base class for copy-spec execution engines.
+
+    Executors prepare and execute scheduling plans, in whatever form is most
+    convenient for users of that executor.
+    """
 
     def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
         """Convert copy specifications into a plan."""

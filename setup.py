@@ -1,6 +1,6 @@
 import os
+
 from setuptools import find_packages, setup
-from setuptools import setup
 
 here = os.path.dirname(__file__)
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:

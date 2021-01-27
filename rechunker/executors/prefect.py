@@ -1,17 +1,9 @@
-from typing import Iterable, Tuple
-
 import prefect
 
-from rechunker.executors.util import chunk_keys, split_into_direct_copies
-from rechunker.types import (
-    CopySpec,
-    Executor,
-    ReadableArray,
-    WriteableArray,
-)
+from rechunker.types import ParallelPipelines, PipelineExecutor
 
 
-class PrefectExecutor(Executor[prefect.Flow]):
+class PrefectPipelineExecutor(PipelineExecutor[prefect.Flow]):
     """An execution engine based on Prefect.
 
     Supports copying between any arrays that implement ``__getitem__`` and
@@ -21,33 +13,45 @@ class PrefectExecutor(Executor[prefect.Flow]):
     Execution plans for PrefectExecutor are prefect.Flow objects.
     """
 
-    def prepare_plan(self, specs: Iterable[CopySpec]) -> prefect.Flow:
-        return _make_flow(specs)
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> prefect.Flow:
+        return _make_flow(pipelines)
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
-        return plan.run(**kwargs)
+        state = plan.run(**kwargs)
+        return state
 
 
-@prefect.task
-def _copy_chunk(
-    source: ReadableArray, target: WriteableArray, key: Tuple[int, ...]
-) -> None:
-    target[key] = source[key]
+class MappedTaskWrapper(prefect.Task):
+    def __init__(self, stage, **kwargs):
+        self.stage = stage
+        super().__init__(**kwargs)
+
+    def run(self, key):
+        return self.stage.func(key)
 
 
-def _make_flow(specs: Iterable[CopySpec]) -> prefect.Flow:
+class SingleTaskWrapper(prefect.Task):
+    def __init__(self, stage, **kwargs):
+        self.stage = stage
+        super().__init__(**kwargs)
+
+    def run(self):
+        return self.stage.func()
+
+
+def _make_flow(pipelines: ParallelPipelines) -> prefect.Flow:
     with prefect.Flow("Rechunker") as flow:
         # iterate over different arrays in the group
-        for spec in specs:
-            copy_tasks = []
+        for pipeline in pipelines:
+            stage_tasks = []
             # iterate over the different stages of the array copying
-            for (source, target, chunks) in split_into_direct_copies(spec):
-                keys = list(chunk_keys(source.shape, chunks))
-                copy_task = _copy_chunk.map(
-                    prefect.unmapped(source), prefect.unmapped(target), keys
-                )
-                copy_tasks.append(copy_task)
+            for stage in pipeline:
+                if stage.map_args is None:
+                    stage_task = SingleTaskWrapper(stage)
+                else:
+                    stage_task = MappedTaskWrapper(stage).map(stage.map_args)
+                stage_tasks.append(stage_task)
             # create dependence between stages
-            for n in range(len(copy_tasks) - 1):
-                copy_tasks[n + 1].set_upstream(copy_tasks[n])
+            for n in range(len(stage_tasks) - 1):
+                stage_tasks[n + 1].set_upstream(stage_tasks[n])
     return flow

@@ -4,4 +4,4 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-from .api import rechunk, Rechunked
+from .api import Rechunked, rechunk

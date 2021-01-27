@@ -1,17 +1,14 @@
 from functools import partial
+from typing import Callable, Iterable
 
-from typing import Callable, Iterable, Tuple
-
-from rechunker.executors.util import chunk_keys, split_into_direct_copies
-from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
-
+from rechunker.types import ParallelPipelines, PipelineExecutor
 
 # PythonExecutor represents delayed execution tasks as functions that require
 # no arguments.
 Task = Callable[[], None]
 
 
-class PythonExecutor(Executor[Task]):
+class PythonPipelineExecutor(PipelineExecutor[Task]):
     """An execution engine based on Python loops.
 
     Supports copying between any arrays that implement ``__getitem__`` and
@@ -20,23 +17,19 @@ class PythonExecutor(Executor[Task]):
     Execution plans for PythonExecutor are functions that accept no arguments.
     """
 
-    def prepare_plan(self, specs: Iterable[CopySpec]) -> Task:
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Task:
         tasks = []
-        for spec in specs:
-            for direct_spec in split_into_direct_copies(spec):
-                tasks.append(partial(_direct_array_copy, *direct_spec))
+        for pipeline in pipelines:
+            for stage in pipeline:
+                if stage.map_args is None:
+                    tasks.append(stage.func)
+                else:
+                    for arg in stage.map_args:
+                        tasks.append(partial(stage.func, arg))
         return partial(_execute_all, tasks)
 
     def execute_plan(self, plan: Task, **kwargs):
         plan()
-
-
-def _direct_array_copy(
-    source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
-) -> None:
-    """Direct copy between arrays."""
-    for key in chunk_keys(source.shape, chunks):
-        target[key] = source[key]
 
 
 def _execute_all(tasks: Iterable[Task]) -> None:

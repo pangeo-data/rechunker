@@ -1,4 +1,5 @@
 import numpy as np
+
 from rechunker.compat import prod
 
 

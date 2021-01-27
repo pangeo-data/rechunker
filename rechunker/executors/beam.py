@@ -8,10 +8,10 @@ from rechunker.executors.util import (
     chunk_keys,
     split_into_direct_copies,
 )
-from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
+from rechunker.types import CopySpec, CopySpecExecutor, ReadableArray, WriteableArray
 
 
-class BeamExecutor(Executor[beam.PTransform]):
+class BeamExecutor(CopySpecExecutor[beam.PTransform]):
     """An execution engine based on Apache Beam.
 
     Supports copying between any arrays that implement ``__getitem__`` and

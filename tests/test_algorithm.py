@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-from rechunker.compat import prod
-
-import pytest
-from hypothesis import given, assume
 import hypothesis.strategies as st
+import pytest
+from hypothesis import assume, given
 
 from rechunker.algorithm import consolidate_chunks, rechunking_plan
+from rechunker.compat import prod
 
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])

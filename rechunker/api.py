@@ -3,20 +3,20 @@ import html
 import textwrap
 from typing import Union
 
-import zarr
 import dask
 import dask.array
 import xarray
-
-from rechunker.algorithm import rechunking_plan
-from rechunker.types import ArrayProxy, CopySpec, Executor
+import zarr
 from xarray.backends.zarr import (
+    DIMENSION_KEY,
     encode_zarr_attr_value,
     encode_zarr_variable,
     extract_zarr_variable_encoding,
-    DIMENSION_KEY,
 )
 from xarray.conventions import encode_dataset_coordinates
+
+from rechunker.algorithm import rechunking_plan
+from rechunker.types import ArrayProxy, CopySpec, CopySpecExecutor
 
 
 class Rechunked:
@@ -178,25 +178,25 @@ def _validate_options(options):
             )
 
 
-def _get_executor(name: str) -> Executor:
+def _get_executor(name: str) -> CopySpecExecutor:
     # converts a string name into a Executor instance
     # imports are conditional to avoid hard dependencies
     if name.lower() == "dask":
-        from rechunker.executors.dask import DaskExecutor
+        from rechunker.pipeline import DaskCopySpecExecutor
 
-        return DaskExecutor()
+        return DaskCopySpecExecutor()
     elif name.lower() == "beam":
         from rechunker.executors.beam import BeamExecutor
 
         return BeamExecutor()
     elif name.lower() == "prefect":
-        from rechunker.executors.prefect import PrefectExecutor
+        from rechunker.pipeline import PrefectCopySpecExecutor
 
-        return PrefectExecutor()
+        return PrefectCopySpecExecutor()
     elif name.lower() == "python":
-        from rechunker.executors.python import PythonExecutor
+        from rechunker.pipeline import PythonCopySpecExecutor
 
-        return PythonExecutor()
+        return PythonCopySpecExecutor()
     elif name.lower() == "pywren":
         from rechunker.executors.pywren import PywrenExecutor
 
@@ -213,7 +213,7 @@ def rechunk(
     target_options=None,
     temp_store=None,
     temp_options=None,
-    executor: Union[str, Executor] = "dask",
+    executor: Union[str, CopySpecExecutor] = "dask",
 ) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
@@ -285,13 +285,6 @@ def rechunk(
     """
     if isinstance(executor, str):
         executor = _get_executor(executor)
-    if isinstance(source, (dask.array.Array, xarray.Dataset)):
-        from rechunker.executors.dask import DaskExecutor
-
-        if not isinstance(executor, DaskExecutor):
-            raise NotImplementedError(
-                f"Executor type {type(executor)} not supported for source {type(source)}."
-            )
 
     copy_spec, intermediate, target = _setup_rechunk(
         source=source,

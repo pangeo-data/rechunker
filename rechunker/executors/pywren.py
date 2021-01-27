@@ -1,19 +1,18 @@
 from functools import partial
-
 from typing import Callable, Iterable, Tuple
-
-from rechunker.executors.util import chunk_keys, split_into_direct_copies
-from rechunker.types import CopySpec, Executor, ReadableArray, WriteableArray
 
 import pywren_ibm_cloud as pywren
 from pywren_ibm_cloud.executor import FunctionExecutor
+
+from rechunker.executors.util import chunk_keys, split_into_direct_copies
+from rechunker.types import CopySpec, CopySpecExecutor, ReadableArray, WriteableArray
 
 # PywrenExecutor represents delayed execution tasks as functions that require
 # a FunctionExecutor.
 Task = Callable[[FunctionExecutor], None]
 
 
-class PywrenExecutor(Executor[Task]):
+class PywrenExecutor(CopySpecExecutor[Task]):
     """An execution engine based on Pywren.
 
     Supports zarr arrays as inputs. Outputs must be zarr arrays.

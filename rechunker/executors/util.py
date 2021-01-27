@@ -1,6 +1,5 @@
 import itertools
 import math
-
 from typing import Iterator, NamedTuple, Tuple
 
 from rechunker.types import CopySpec, ReadableArray, WriteableArray
