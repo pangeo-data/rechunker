@@ -1,7 +1,7 @@
 Release Notes
 =============
 
-v0.3.3 - 2020-01-15
+v0.3.3 - 2021-01-15
 -------------------
 
 - Fixed bug preventing specification of ``target_chunks`` as dict with Xarray inputs.
