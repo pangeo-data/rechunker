@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+v0.4 - 2021-04-19
+-----------------
+
+- Internal refactor of Executor class that allows for reuse in outside projects
+  (e.g. Pangeo Forge). By `Ryan Abernathey <https://github.com/rabernat>`_.
+
+
 v0.3.3 - 2021-01-15
 -------------------
 
