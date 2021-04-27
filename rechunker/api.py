@@ -16,6 +16,7 @@ from xarray.backends.zarr import (
 from xarray.conventions import encode_dataset_coordinates
 
 from rechunker.algorithm import rechunking_plan
+from rechunker.pipeline import CopySpecToPipelinesMixin
 from rechunker.types import ArrayProxy, CopySpec, CopySpecExecutor
 
 
@@ -182,7 +183,10 @@ def _get_executor(name: str) -> CopySpecExecutor:
     # converts a string name into a Executor instance
     # imports are conditional to avoid hard dependencies
     if name.lower() == "dask":
-        from rechunker.pipeline import DaskCopySpecExecutor
+        from rechunker.executors.dask import DaskPipelineExecutor
+
+        class DaskCopySpecExecutor(DaskPipelineExecutor, CopySpecToPipelinesMixin):
+            pass
 
         return DaskCopySpecExecutor()
     elif name.lower() == "beam":
@@ -190,11 +194,19 @@ def _get_executor(name: str) -> CopySpecExecutor:
 
         return BeamExecutor()
     elif name.lower() == "prefect":
-        from rechunker.pipeline import PrefectCopySpecExecutor
+        from rechunker.executors.prefect import PrefectPipelineExecutor
+
+        class PrefectCopySpecExecutor(
+            PrefectPipelineExecutor, CopySpecToPipelinesMixin
+        ):
+            pass
 
         return PrefectCopySpecExecutor()
     elif name.lower() == "python":
-        from rechunker.pipeline import PythonCopySpecExecutor
+        from rechunker.executors.python import PythonPipelineExecutor
+
+        class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
+            pass
 
         return PythonCopySpecExecutor()
     elif name.lower() == "pywren":

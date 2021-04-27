@@ -5,9 +5,6 @@ from typing import Any, Iterable, Iterator, Tuple, TypeVar
 import dask
 import numpy as np
 
-from .executors.dask import DaskPipelineExecutor
-from .executors.prefect import PrefectPipelineExecutor
-from .executors.python import PythonPipelineExecutor
 from .types import (
     CopySpec,
     CopySpecExecutor,
@@ -82,15 +79,3 @@ class CopySpecToPipelinesMixin(CopySpecExecutor):
     def pipelines_to_plan(self, pipelines: ParallelPipelines) -> Any:
         """Transform ParallelPiplines to an execution plan"""
         raise NotImplementedError
-
-
-class PythonCopySpecExecutor(PythonPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
-
-
-class DaskCopySpecExecutor(DaskPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
-
-
-class PrefectCopySpecExecutor(PrefectPipelineExecutor, CopySpecToPipelinesMixin):
-    pass
