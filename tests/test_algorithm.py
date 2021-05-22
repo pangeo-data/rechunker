@@ -5,7 +5,11 @@ import hypothesis.strategies as st
 import pytest
 from hypothesis import assume, given
 
-from rechunker.algorithm import consolidate_chunks, rechunking_plan
+from rechunker.algorithm import (
+    consolidate_chunks,
+    rechunking_plan,
+    calculate_stage_chunks,
+)
 from rechunker.compat import prod
 
 
@@ -83,6 +87,23 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     assert new_chunks == expected
     chunk_mem = itemsize * new_chunks[0] * new_chunks[1] * new_chunks[2] * new_chunks[3]
     assert chunk_mem <= max_mem
+
+
+@pytest.mark.parametrize(
+    "read_chunks, write_chunks, stage_count, expected",
+    [
+        ((100, 1), (1, 100), 1, []),
+        ((100, 1), (1, 100), 2, [(10, 10)]),
+        ((100, 1), (1, 100), 3, [(22, 5), (5, 22)]),
+        ((1_000_000, 1), (1, 1_000_000), 2, [(1000, 1000)]),
+        ((1_000_000, 1), (1, 1_000_000), 3, [(10000, 100), (100, 10000)]),
+        ((1_000_000, 1), (1, 1_000_000), 4, [(31623, 32), (1000, 1000), (32, 31623)]),
+        ((10, 10), (1, 100), 2, [(3, 32)]),
+    ],
+)
+def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected):
+    actual = calculate_stage_chunks(read_chunks, write_chunks, stage_count)
+    assert actual == expected
 
 
 def _verify_plan_correctness(

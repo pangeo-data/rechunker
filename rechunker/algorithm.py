@@ -75,6 +75,59 @@ def consolidate_chunks(
     return tuple(new_chunks)
 
 
+def _calculate_shared_chunks(
+    read_chunks: Sequence[int], write_chunks: Sequence[int]
+) -> Tuple[int, ...]:
+    # Intermediate chunks are the smallest possible chunks which fit
+    # into both read_chunks and write_chunks.
+    # Example:
+    #   read_chunks:            (20, 5)
+    #   target_chunks:          (4, 25)
+    #   intermediate_chunks:    (4, 5)
+    # We don't need to check their memory usage: they are guaranteed to be smaller
+    # than both read and write chunks.
+    return tuple(
+        min(c_read, c_target) for c_read, c_target in zip(read_chunks, write_chunks)
+    )
+
+
+def calculate_stage_chunks(
+    read_chunks, write_chunks, stage_count=1,
+):
+    """
+    Calculate chunks after each stage of a multi-stage rechunking.
+
+    Each stage consists of "split" step followed by a "consolidate" step.
+
+    The strategy used here is to progressively enlarge or shrink chunks along
+    each dimension by the same multiple in each stage. This should roughly
+    minimize the total number of arrays resulting from "split" steps in a
+    multi-stage pipeline. It also keeps the total number of elements in each
+    chunk constant, up to rounding error, so memory usage should also remain
+    constant.
+
+    Examples::
+
+        >>> calculate_stage_chunks((1_000_000, 1), (1, 1_000_000), stage_count=2)
+        [(1000, 1000)]
+        >>> calculate_stage_chunks((1_000_000, 1), (1, 1_000_000), stage_count=3)
+        [(10000, 100), (100, 10000)]
+        >>> calculate_stage_chunks((1_000_000, 1), (1, 1_000_000), stage_count=4)
+        [(31623, 32), (1000, 1000), (32, 31623)]
+
+    TODO: consider more sophisticated algorithms.
+    """
+    stage_chunks = []
+    for stage in range(1, stage_count):
+        power = stage / stage_count
+        chunks = tuple(
+            round(r ** (1 - power) * w ** power)
+            for r, w in zip(read_chunks, write_chunks)
+        )
+        stage_chunks.append(chunks)
+    return stage_chunks
+
+
 def rechunking_plan(
     shape: Sequence[int],
     source_chunks: Sequence[int],
@@ -85,6 +138,8 @@ def rechunking_plan(
     consolidate_writes: bool = True,
 ) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
     """
+    Calculate a plan for rechunking arrays.
+
     Parameters
     ----------
     shape : Tuple
@@ -149,16 +204,6 @@ def rechunking_plan(
     else:
         read_chunks = tuple(source_chunks)
 
-    # Intermediate chunks  are the smallest possible chunks which fit
-    # into both read_chunks and write_chunks.
-    # Example:
-    #   read_chunks:            (20, 5)
-    #   target_chunks:          (4, 25)
-    #   intermediate_chunks:    (4, 5)
-    # We don't need to check their memory usage: they are guaranteed to be smaller
-    # than both read and write chunks.
-    intermediate_chunks = [
-        min(c_read, c_target) for c_read, c_target in zip(read_chunks, write_chunks)
-    ]
+    intermediate_chunks = _calculate_shared_chunks(read_chunks, write_chunks)
 
-    return read_chunks, tuple(intermediate_chunks), write_chunks
+    return read_chunks, intermediate_chunks, write_chunks
