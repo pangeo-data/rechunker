@@ -1,6 +1,7 @@
 """Core rechunking algorithm stuff."""
 from typing import List, Optional, Sequence, Tuple
 
+from math import floor
 from rechunker.compat import prod
 
 
@@ -92,8 +93,11 @@ def _calculate_shared_chunks(
 
 
 def calculate_stage_chunks(
-    read_chunks, write_chunks, stage_count=1,
-):
+    read_chunks: Tuple[int, ...],
+    write_chunks: Tuple[int, ...],
+    stage_count: int = 1,
+    epsilon: float = 1e-8,
+) -> List[Tuple[int, ...]]:
     """
     Calculate chunks after each stage of a multi-stage rechunking.
 
@@ -103,7 +107,7 @@ def calculate_stage_chunks(
     each dimension by the same multiple in each stage. This should roughly
     minimize the total number of arrays resulting from "split" steps in a
     multi-stage pipeline. It also keeps the total number of elements in each
-    chunk constant, up to rounding error, so memory usage should also remain
+    chunk constant, up to rounding error, so memory usage should remain
     constant.
 
     Examples::
@@ -120,12 +124,105 @@ def calculate_stage_chunks(
     stage_chunks = []
     for stage in range(1, stage_count):
         power = stage / stage_count
+        # Add a small floating-point epsilon so we don't inadvertently
+        # round-down even chunk-sizes.
         chunks = tuple(
-            round(r ** (1 - power) * w ** power)
-            for r, w in zip(read_chunks, write_chunks)
+            floor(rc ** (1 - power) * wc ** power + epsilon)
+            for rc, wc in zip(read_chunks, write_chunks)
         )
         stage_chunks.append(chunks)
     return stage_chunks
+
+
+# not a tight upper bound, but ensures that the loop in
+# multistage_rechunking_plan always terminates.
+MAX_STAGES = 100
+
+
+def multistage_rechunking_plan(
+    shape: Sequence[int],
+    source_chunks: Sequence[int],
+    target_chunks: Sequence[int],
+    itemsize: int,
+    min_mem: int,
+    max_mem: int,
+    consolidate_reads: bool = True,
+    consolidate_writes: bool = True,
+) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
+    """A rechunking plan that can use multiple split/consolidate steps."""
+    ndim = len(shape)
+    if len(source_chunks) != ndim:
+        raise ValueError(f"source_chunks {source_chunks} must have length {ndim}")
+    if len(target_chunks) != ndim:
+        raise ValueError(f"target_chunks {target_chunks} must have length {ndim}")
+
+    source_chunk_mem = itemsize * prod(source_chunks)
+    target_chunk_mem = itemsize * prod(target_chunks)
+
+    if source_chunk_mem > max_mem:
+        raise ValueError(
+            f"Source chunk memory ({source_chunk_mem}) exceeds max_mem ({max_mem})"
+        )
+    if target_chunk_mem > max_mem:
+        raise ValueError(
+            f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})"
+        )
+
+    if max_mem < min_mem:  # basic sanity test
+        raise ValueError(
+            "max_mem ({max_mem}) cannot be smaller than min_mem ({min_mem})"
+        )
+
+    if consolidate_writes:
+        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
+    else:
+        write_chunks = tuple(target_chunks)
+
+    if consolidate_reads:
+        read_chunk_limits: List[Optional[int]] = []
+        for sc, wc in zip(source_chunks, write_chunks):
+            limit: Optional[int]
+            if wc > sc:
+                # consolidate reads over this axis, up to the write chunk size
+                limit = wc
+            else:
+                # don't consolidate reads over this axis
+                limit = None
+            read_chunk_limits.append(limit)
+
+        read_chunks = consolidate_chunks(
+            shape, source_chunks, itemsize, max_mem, read_chunk_limits
+        )
+    else:
+        read_chunks = tuple(source_chunks)
+
+    # increase the number of stages until min_mem is exceeded
+    for stage_count in range(MAX_STAGES):
+
+        stage_chunks = calculate_stage_chunks(read_chunks, write_chunks, stage_count)
+        pre_chunks = [read_chunks] + stage_chunks
+        post_chunks = stage_chunks + [write_chunks]
+
+        int_chunks = [
+            _calculate_shared_chunks(pre, post)
+            for pre, post in zip(pre_chunks, post_chunks)
+        ]
+        if all(itemsize * prod(chunks) >= min_mem for chunks in int_chunks):
+            # success!
+            return list(zip(pre_chunks, int_chunks, post_chunks))
+
+    raise AssertionError(
+        "Failed to find a feasible multi-staging rechunking scheme satisfying "
+        f"min_mem ({min_mem}) and max_mem ({max_mem}) constraints. "
+        "Please file a bug report on GitHub: "
+        "https://github.com/pangeo-data/rechunker/issues\n\n"
+        "Include the following debugging info:\n"
+        f"shape={shape}, source_chunks={source_chunks}, "
+        f"target_chunks={target_chunks}, itemsize={itemsize}, "
+        f"min_mem={min_mem}, max_mem={max_mem}, "
+        f"consolidate_reads={consolidate_reads}, "
+        f"consolidate_writes={consolidate_writes}"
+    )
 
 
 def rechunking_plan(
@@ -162,48 +259,14 @@ def rechunking_plan(
     new_chunks : tuple
         The new chunks, size guaranteed to be <= mam_mem
     """
-    ndim = len(shape)
-    if len(source_chunks) != ndim:
-        raise ValueError(f"source_chunks {source_chunks} must have length {ndim}")
-    if len(target_chunks) != ndim:
-        raise ValueError(f"target_chunks {target_chunks} must have length {ndim}")
-
-    source_chunk_mem = itemsize * prod(source_chunks)
-    target_chunk_mem = itemsize * prod(target_chunks)
-
-    if source_chunk_mem > max_mem:
-        raise ValueError(
-            f"Source chunk memory ({source_chunk_mem}) exceeds max_mem ({max_mem})"
-        )
-    if target_chunk_mem > max_mem:
-        raise ValueError(
-            f"Target chunk memory ({target_chunk_mem}) exceeds max_mem ({max_mem})"
-        )
-
-    if consolidate_writes:
-        write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
-    else:
-        write_chunks = tuple(target_chunks)
-
-    if consolidate_reads:
-        read_chunk_limits: List[Optional[int]]
-        read_chunk_limits = []  #
-        for n_ax, (sc, wc) in enumerate(zip(source_chunks, write_chunks)):
-            read_chunk_lim: Optional[int]
-            if wc > sc:
-                # consolidate reads over this axis, up to the write chunk size
-                read_chunk_lim = wc
-            else:
-                # don't consolidate reads over this axis
-                read_chunk_lim = None
-            read_chunk_limits.append(read_chunk_lim)
-
-        read_chunks = consolidate_chunks(
-            shape, source_chunks, itemsize, max_mem, read_chunk_limits
-        )
-    else:
-        read_chunks = tuple(source_chunks)
-
-    intermediate_chunks = _calculate_shared_chunks(read_chunks, write_chunks)
-
-    return read_chunks, intermediate_chunks, write_chunks
+    (stage,) = multistage_rechunking_plan(
+        shape,
+        source_chunks,
+        target_chunks,
+        itemsize=itemsize,
+        min_mem=itemsize,
+        max_mem=max_mem,
+        consolidate_writes=consolidate_writes,
+        consolidate_reads=consolidate_reads,
+    )
+    return stage

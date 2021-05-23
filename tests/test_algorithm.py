@@ -2,6 +2,7 @@
 
 """Tests for `rechunker` package."""
 import hypothesis.strategies as st
+from unittest.mock import patch
 import pytest
 from hypothesis import assume, given
 
@@ -9,6 +10,7 @@ from rechunker.algorithm import (
     consolidate_chunks,
     rechunking_plan,
     calculate_stage_chunks,
+    multistage_rechunking_plan,
 )
 from rechunker.compat import prod
 
@@ -94,11 +96,11 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     [
         ((100, 1), (1, 100), 1, []),
         ((100, 1), (1, 100), 2, [(10, 10)]),
-        ((100, 1), (1, 100), 3, [(22, 5), (5, 22)]),
+        ((100, 1), (1, 100), 3, [(21, 4), (4, 21)]),
         ((1_000_000, 1), (1, 1_000_000), 2, [(1000, 1000)]),
         ((1_000_000, 1), (1, 1_000_000), 3, [(10000, 100), (100, 10000)]),
-        ((1_000_000, 1), (1, 1_000_000), 4, [(31623, 32), (1000, 1000), (32, 31623)]),
-        ((10, 10), (1, 100), 2, [(3, 32)]),
+        ((1_000_000, 1), (1, 1_000_000), 4, [(31622, 31), (1000, 1000), (31, 31622)]),
+        ((10, 10), (1, 100), 2, [(3, 31)]),
     ],
 )
 def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected):
@@ -106,18 +108,19 @@ def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected
     assert actual == expected
 
 
-def _verify_plan_correctness(
+def _verify_single_stage_plan_correctness(
     source_chunks,
     read_chunks,
     int_chunks,
     write_chunks,
     target_chunks,
     itemsize,
+    min_mem,
     max_mem,
 ):
-    assert itemsize * prod(read_chunks) <= max_mem
-    assert itemsize * prod(int_chunks) <= max_mem
-    assert itemsize * prod(write_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(read_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(int_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(write_chunks) <= max_mem
     for sc, rc, ic, wc, tc in zip(
         source_chunks, read_chunks, int_chunks, write_chunks, target_chunks
     ):
@@ -125,6 +128,21 @@ def _verify_plan_correctness(
         assert wc >= tc
         assert ic == min(rc, wc)
         # todo: check for write overlaps
+
+
+def _verify_multistage_plan_correctness(
+    stages, source_chunks, target_chunks, itemsize, min_mem, max_mem,
+):
+    for sc, rc in zip(source_chunks, stages[0][0]):
+        assert rc >= sc
+    for tc, wc in zip(target_chunks, stages[-1][-1]):
+        assert wc >= tc
+    for read_chunks, int_chunks, write_chunks in stages:
+        assert min_mem <= itemsize * prod(read_chunks) <= max_mem
+        assert min_mem <= itemsize * prod(int_chunks) <= max_mem
+        assert min_mem <= itemsize * prod(write_chunks) <= max_mem
+        for rc, ic, wc in zip(read_chunks, int_chunks, write_chunks):
+            assert ic == min(rc, wc)
 
 
 @pytest.mark.parametrize(
@@ -157,13 +175,15 @@ def test_rechunking_plan_1D(
     assert read_chunks == read_chunks_expected
     assert int_chunks == intermediate_chunks_expected
     assert write_chunks == write_chunks_expected
-    _verify_plan_correctness(
+    min_mem = itemsize
+    _verify_single_stage_plan_correctness(
         source_chunks,
         read_chunks,
         int_chunks,
         write_chunks,
         target_chunks,
         itemsize,
+        min_mem,
         max_mem,
     )
 
@@ -196,15 +216,50 @@ def test_rechunking_plan_2d(
     assert read_chunks == read_chunks_expected
     assert int_chunks == intermediate_chunks_expected
     assert write_chunks == write_chunks_expected
-    _verify_plan_correctness(
+    min_mem = itemsize
+    _verify_single_stage_plan_correctness(
         source_chunks,
         read_chunks,
         int_chunks,
         write_chunks,
         target_chunks,
         itemsize,
+        min_mem,
         max_mem,
     )
+
+
+@pytest.mark.parametrize(
+    "shape, source_chunks, target_chunks, itemsize, min_mem, max_mem, expected",
+    [
+        ((100, 100), (100, 1), (1, 100), 1, 1, 100, [((100, 1), (1, 1), (1, 100))],),
+        (
+            (100, 100),
+            (100, 1),
+            (1, 100),
+            1,
+            10,
+            100,
+            [((100, 1), (10, 1), (10, 10)), ((10, 10), (1, 10), (1, 100)),],
+        ),
+    ],
+)
+def test_multistage_rechunking_plan(
+    shape, source_chunks, target_chunks, itemsize, min_mem, max_mem, expected,
+):
+    stages = multistage_rechunking_plan(
+        shape, source_chunks, target_chunks, itemsize, min_mem, max_mem
+    )
+    assert stages == expected
+
+
+@patch("rechunker.algorithm.MAX_STAGES", 1)
+def test_multistage_rechunking_plan_fails():
+    with pytest.raises(
+        AssertionError,
+        match="Failed to find a feasible multi-staging rechunking scheme",
+    ):
+        multistage_rechunking_plan((100, 100), (100, 1), (1, 100), 1, 10, 100)
 
 
 @st.composite
@@ -224,29 +279,35 @@ def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
         target_chunks.append(tc)
     source_chunk_mem = itemsize * prod(source_chunks)
     target_chunk_mem = itemsize * prod(target_chunks)
-    min_mem = max(source_chunk_mem, target_chunk_mem)
-    return (tuple(shape), tuple(source_chunks), tuple(target_chunks), min_mem)
+    orig_mem = max(source_chunk_mem, target_chunk_mem)
+    return (tuple(shape), tuple(source_chunks), tuple(target_chunks), orig_mem)
 
 
 @st.composite
 def shapes_chunks_maxmem_for_ndim(draw):
     ndim = draw(st.integers(min_value=1, max_value=5))
     itemsize = 4
-    shape, source_chunks, target_chunks, min_mem = draw(
+    shape, source_chunks, target_chunks, orig_mem = draw(
         shapes_chunks_maxmem(ndim=ndim, itemsize=4, max_len=10_000)
     )
-    max_mem = min_mem * 10
-    return shape, source_chunks, target_chunks, max_mem, itemsize
+    max_mem = orig_mem * 10
+    min_mem = draw(
+        st.integers(
+            min_value=itemsize,
+            max_value=min(itemsize * max(prod(shape) // 4, 1), 5 * orig_mem),
+        )
+    )
+    return shape, source_chunks, target_chunks, min_mem, max_mem, itemsize
 
 
 @given(shapes_chunks_maxmem_for_ndim())
 def test_rechunking_plan_hypothesis(inputs):
-    shape, source_chunks, target_chunks, max_mem, itemsize = inputs
-    # print(shape, source_chunks, target_chunks, max_mem)
+    shape, source_chunks, target_chunks, min_mem, max_mem, itemsize = inputs
+    print(shape, source_chunks, target_chunks, min_mem, max_mem)
 
-    args = shape, source_chunks, target_chunks, itemsize, max_mem
-    read_chunks, int_chunks, write_chunks = rechunking_plan(*args)
-    # print(" plan: ", read_chunks, int_chunks, write_chunks)
+    args = shape, source_chunks, target_chunks, itemsize, min_mem, max_mem
+    stages = multistage_rechunking_plan(*args)
+    print(" plan: ", stages)
 
     # this should be guaranteed by the test
     source_chunk_mem = itemsize * prod(source_chunks)
@@ -255,16 +316,12 @@ def test_rechunking_plan_hypothesis(inputs):
     assert target_chunk_mem <= max_mem
 
     ndim = len(shape)
-    assert len(read_chunks) == ndim
-    assert len(int_chunks) == ndim
-    assert len(write_chunks) == ndim
+    for stage in stages:
+        read_chunks, int_chunks, write_chunks = stage
+        assert len(read_chunks) == ndim
+        assert len(int_chunks) == ndim
+        assert len(write_chunks) == ndim
 
-    _verify_plan_correctness(
-        source_chunks,
-        read_chunks,
-        int_chunks,
-        write_chunks,
-        target_chunks,
-        itemsize,
-        max_mem,
+    _verify_multistage_plan_correctness(
+        stages, source_chunks, target_chunks, itemsize, min_mem, max_mem,
     )

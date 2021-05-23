@@ -4,5 +4,5 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-from .algorithm import rechunking_plan
+from .algorithm import rechunking_plan, multistage_rechunking_plan
 from .api import Rechunked, rechunk
