@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-import hypothesis.strategies as st
 from unittest.mock import patch
+
+import hypothesis.strategies as st
 import pytest
 from hypothesis import assume, given
 
 from rechunker.algorithm import (
-    consolidate_chunks,
-    rechunking_plan,
     calculate_stage_chunks,
+    consolidate_chunks,
     multistage_rechunking_plan,
+    rechunking_plan,
 )
 from rechunker.compat import prod
 

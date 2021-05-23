@@ -1,7 +1,7 @@
 """Core rechunking algorithm stuff."""
+from math import floor
 from typing import List, Optional, Sequence, Tuple
 
-from math import floor
 from rechunker.compat import prod
 
 
