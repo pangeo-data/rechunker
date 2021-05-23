@@ -16,21 +16,19 @@ doc_requires = [
     "IPython",
     "nbsphinx",
 ]
+test_requires = ["pytest", "hypothesis"]
 
 extras_require = {
     "complete": install_requires
     + ["apache_beam", "pyyaml", "fsspec", "prefect", "pywren_ibm_cloud"],
     "docs": doc_requires,
+    "test": test_requires,
 }
-extras_require["dev"] = extras_require["complete"] + [
-    "pytest",
-    "pytest-cov",
-    "hypothesis",
-    "flake8",
-    "black",
-    "codecov",
-    "mypy==0.782",
-]
+extras_require["dev"] = (
+    extras_require["complete"]
+    + extras_require["test"]
+    + ["pytest-cov", "flake8", "black", "codecov", "mypy==0.782",]
+)
 
 setup(
     name="rechunker",

@@ -5,7 +5,6 @@ from pathlib import Path
 import dask
 import dask.array as dsa
 import dask.core
-import fsspec
 import numpy
 import pytest
 import xarray
@@ -49,7 +48,7 @@ def test_invalid_executor():
     [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
+@pytest.mark.parametrize("executor", ["dask", "python", requires_prefect("prefect")])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset(
@@ -63,6 +62,7 @@ def test_rechunk_dataset(
     temp_store,
 ):
     if target_store.startswith("mapper"):
+        fsspec = pytest.importorskip("fsspec")
         target_store = fsspec.get_mapper(str(tmp_path) + target_store)
         temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
     else:
@@ -250,6 +250,7 @@ def test_rechunk_dask_array(
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
     if source_store.startswith("mapper"):
+        fsspec = pytest.importorskip("fsspec")
         store_source = fsspec.get_mapper(str(tmp_path) + source_store)
         target_store = fsspec.get_mapper(str(tmp_path) + target_store)
         temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)

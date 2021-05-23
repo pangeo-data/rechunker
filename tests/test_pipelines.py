@@ -4,6 +4,9 @@ Test ParallelPiplines and related executors
 
 import pytest
 
+# TODO: remove the hard dependency on prefect here
+pytest.importorskip("prefect")
+
 from rechunker.executors.dask import DaskPipelineExecutor
 from rechunker.executors.prefect import PrefectPipelineExecutor
 from rechunker.executors.python import PythonPipelineExecutor
