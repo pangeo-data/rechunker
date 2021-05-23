@@ -1,8 +1,9 @@
 """Core rechunking algorithm stuff."""
-from math import floor
+import warnings
+from math import ceil, floor
 from typing import List, Optional, Sequence, Tuple
 
-from rechunker.compat import prod
+from rechunker.compat import lcm, prod
 
 
 def consolidate_chunks(
@@ -134,9 +135,36 @@ def calculate_stage_chunks(
     return stage_chunks
 
 
+def _count_num_splits(source_chunk: int, target_chunk: int, size: int) -> int:
+    multiple = lcm(source_chunk, target_chunk)
+    splits_per_lcm = multiple // source_chunk + multiple // target_chunk - 1
+    lcm_count, remainder = divmod(size, multiple)
+    if remainder:
+        splits_in_remainder = (
+            ceil(remainder / source_chunk) + ceil(remainder / target_chunk) - 1
+        )
+    else:
+        splits_in_remainder = 0
+    return lcm_count * splits_per_lcm + splits_in_remainder
+
+
+def calculate_single_stage_io_ops(
+    shape: Sequence[int], in_chunks: Sequence[int], out_chunks: Sequence[int]
+) -> int:
+    """Estimate the number of irregular chunks required for rechunking."""
+    return prod(map(_count_num_splits, in_chunks, out_chunks, shape))
+
+
 # not a tight upper bound, but ensures that the loop in
 # multistage_rechunking_plan always terminates.
 MAX_STAGES = 100
+
+
+_MultistagePlan = List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]
+
+
+class ExcessiveIOWarning(Warning):
+    pass
 
 
 def multistage_rechunking_plan(
@@ -148,7 +176,7 @@ def multistage_rechunking_plan(
     max_mem: int,
     consolidate_reads: bool = True,
     consolidate_writes: bool = True,
-) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
+) -> _MultistagePlan:
     """A rechunking plan that can use multiple split/consolidate steps."""
     ndim = len(shape)
     if len(source_chunks) != ndim:
@@ -196,8 +224,11 @@ def multistage_rechunking_plan(
     else:
         read_chunks = tuple(source_chunks)
 
+    prev_io_ops: Optional[float] = None
+    prev_plan: Optional[_MultistagePlan] = None
+
     # increase the number of stages until min_mem is exceeded
-    for stage_count in range(MAX_STAGES):
+    for stage_count in range(1, MAX_STAGES):
 
         stage_chunks = calculate_stage_chunks(read_chunks, write_chunks, stage_count)
         pre_chunks = [read_chunks] + stage_chunks
@@ -207,9 +238,30 @@ def multistage_rechunking_plan(
             _calculate_shared_chunks(pre, post)
             for pre, post in zip(pre_chunks, post_chunks)
         ]
-        if all(itemsize * prod(chunks) >= min_mem for chunks in int_chunks):
-            # success!
-            return list(zip(pre_chunks, int_chunks, post_chunks))
+        plan = list(zip(pre_chunks, int_chunks, post_chunks))
+
+        int_mem = min(itemsize * prod(chunks) for chunks in int_chunks)
+        if int_mem >= min_mem:
+            return plan  # success!
+
+        io_ops = sum(
+            calculate_single_stage_io_ops(shape, pre, post)
+            for pre, post in zip(pre_chunks, post_chunks)
+        )
+        if prev_io_ops is not None and io_ops > prev_io_ops:
+            warnings.warn(
+                "Search for multi-stage rechunking plan terminated before "
+                "achieving the minimum memory requirement due to increasing IO "
+                f"requirements. Smallest intermediates have size {int_mem}."
+                f"Consider decreasing min_mem ({min_mem}) or increasing "
+                f"({max_mem}) to find a more efficient plan.",
+                category=ExcessiveIOWarning,
+            )
+            assert prev_plan is not None
+            return prev_plan
+
+        prev_io_ops = io_ops
+        prev_plan = plan
 
     raise AssertionError(
         "Failed to find a feasible multi-staging rechunking scheme satisfying "

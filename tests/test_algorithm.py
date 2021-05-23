@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
+import warnings
 from unittest.mock import patch
 
 import hypothesis.strategies as st
@@ -8,6 +9,8 @@ import pytest
 from hypothesis import assume, given
 
 from rechunker.algorithm import (
+    ExcessiveIOWarning,
+    calculate_single_stage_io_ops,
     calculate_stage_chunks,
     consolidate_chunks,
     multistage_rechunking_plan,
@@ -109,6 +112,31 @@ def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected
     assert actual == expected
 
 
+@pytest.mark.parametrize(
+    "shape, in_chunks, out_chunks, expected",
+    [
+        ((6,), (1,), (6,), 6),
+        ((10,), (1,), (6,), 10),
+        ((6,), (2,), (3,), 4),
+        ((24,), (2,), (3,), 16),
+        ((10,), (4,), (5,), 4),
+        ((100,), (4,), (5,), 40),
+        ((100, 100), (1, 100), (100, 1), 10_000),
+        ((100, 100), (1, 10), (10, 1), 10_000),
+        ((100, 100), (20, 20), (25, 25), (5 + 3) ** 2),
+        ((50, 50), (20, 20), (25, 25), ((5 + 3) // 2) ** 2),
+        ((100,), (43,), (100,), 3),
+        ((100,), (43,), (51,), 4),
+        ((100,), (43,), (40,), 5),
+        ((100,), (43,), (10,), 12),
+        ((100,), (43,), (1,), 100),
+    ],
+)
+def test_calculate_single_stage_io_ops(shape, in_chunks, out_chunks, expected):
+    actual = calculate_single_stage_io_ops(shape, in_chunks, out_chunks)
+    assert actual == expected
+
+
 def _verify_single_stage_plan_correctness(
     source_chunks,
     read_chunks,
@@ -132,7 +160,13 @@ def _verify_single_stage_plan_correctness(
 
 
 def _verify_multistage_plan_correctness(
-    stages, source_chunks, target_chunks, itemsize, min_mem, max_mem,
+    stages,
+    source_chunks,
+    target_chunks,
+    itemsize,
+    min_mem,
+    max_mem,
+    excessive_io=False,
 ):
     for sc, rc in zip(source_chunks, stages[0][0]):
         assert rc >= sc
@@ -140,7 +174,11 @@ def _verify_multistage_plan_correctness(
         assert wc >= tc
     for read_chunks, int_chunks, write_chunks in stages:
         assert min_mem <= itemsize * prod(read_chunks) <= max_mem
-        assert min_mem <= itemsize * prod(int_chunks) <= max_mem
+        assert itemsize * prod(int_chunks) <= max_mem
+        if excessive_io:
+            assert min_mem >= itemsize * prod(int_chunks)
+        else:
+            assert min_mem <= itemsize * prod(int_chunks)
         assert min_mem <= itemsize * prod(write_chunks) <= max_mem
         for rc, ic, wc in zip(read_chunks, int_chunks, write_chunks):
             assert ic == min(rc, wc)
@@ -254,6 +292,13 @@ def test_multistage_rechunking_plan(
     assert stages == expected
 
 
+def test_multistage_rechunking_plan_warns():
+    with pytest.warns(
+        ExcessiveIOWarning, match="Search for multi-stage rechunking plan terminated",
+    ):
+        multistage_rechunking_plan((100, 100), (100, 1), (1, 100), 1, 90, 100)
+
+
 @patch("rechunker.algorithm.MAX_STAGES", 1)
 def test_multistage_rechunking_plan_fails():
     with pytest.raises(
@@ -307,7 +352,9 @@ def test_rechunking_plan_hypothesis(inputs):
     print(shape, source_chunks, target_chunks, min_mem, max_mem)
 
     args = shape, source_chunks, target_chunks, itemsize, min_mem, max_mem
-    stages = multistage_rechunking_plan(*args)
+    with warnings.catch_warnings(record=True) as w_list:
+        stages = multistage_rechunking_plan(*args)
+        excessive_io = any(issubclass(w.category, ExcessiveIOWarning) for w in w_list)
     print(" plan: ", stages)
 
     # this should be guaranteed by the test
@@ -324,5 +371,11 @@ def test_rechunking_plan_hypothesis(inputs):
         assert len(write_chunks) == ndim
 
     _verify_multistage_plan_correctness(
-        stages, source_chunks, target_chunks, itemsize, min_mem, max_mem,
+        stages,
+        source_chunks,
+        target_chunks,
+        itemsize,
+        min_mem,
+        max_mem,
+        excessive_io=excessive_io,
     )
