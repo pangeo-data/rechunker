@@ -5,6 +5,7 @@ import warnings
 from unittest.mock import patch
 
 import hypothesis.strategies as st
+import numpy as np
 import pytest
 from hypothesis import assume, given
 
@@ -135,6 +136,29 @@ def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected
 def test_calculate_single_stage_io_ops(shape, in_chunks, out_chunks, expected):
     actual = calculate_single_stage_io_ops(shape, in_chunks, out_chunks)
     assert actual == expected
+
+
+@st.composite
+def io_ops_chunks(draw, max_len=1000):
+    size = draw(st.integers(min_value=1, max_value=max_len))
+    source = draw(st.integers(min_value=1, max_value=max_len))
+    target = draw(st.integers(min_value=1, max_value=max_len))
+    return (size, source, target)
+
+
+@given(io_ops_chunks())
+def test_calculate_single_stage_io_ops_hypothesis(inputs):
+    size, source, target = inputs
+
+    calculated = calculate_single_stage_io_ops((size,), (source,), (target,))
+
+    table = np.empty(shape=(size, 2), dtype=int)
+    for i in range(size):
+        table[i, 0] = i // source
+        table[i, 1] = i // target
+    actual = np.unique(table, axis=0).shape[0]
+
+    assert calculated == actual
 
 
 def _verify_single_stage_plan_correctness(
