@@ -332,6 +332,13 @@ def test_multistage_rechunking_plan_fails():
         multistage_rechunking_plan((100, 100), (100, 1), (1, 100), 1, 10, 100)
 
 
+def test_rechunking_plan_invalid_min_mem():
+    with pytest.raises(
+        ValueError, match="cannot be smaller than min_mem",
+    ):
+        multistage_rechunking_plan((100, 100), (100, 1), (1, 100), 1, 101, 100)
+
+
 @st.composite
 def shapes_chunks_maxmem(draw, ndim=3, itemsize=4, max_len=10_000):
     """Generate the data we need to test rechunking_plan."""
