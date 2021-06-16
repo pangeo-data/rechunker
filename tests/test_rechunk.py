@@ -43,10 +43,16 @@ def test_invalid_executor():
 
 
 @pytest.mark.parametrize("shape", [(100, 50)])
-@pytest.mark.parametrize("source_chunks", [(10, 50)])
+@pytest.mark.parametrize("source_chunks", [(10, 50), (100, 5)])
 @pytest.mark.parametrize(
-    "target_chunks",
-    [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}}],
+    "target_chunks, chunk_by_dims",
+    [
+        ({"a": (20, 10), "b": (20,)}, False),
+        ({"a": {"x": 20, "y": 10}, "b": {"x": 20}}, False),
+        ({"x": 20}, True),
+        ({"x": 20, "y": 1e5}, True),
+        ({"x": 20, "y": -1}, True),
+    ],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
@@ -57,6 +63,7 @@ def test_rechunk_dataset(
     shape,
     source_chunks,
     target_chunks,
+    chunk_by_dims,
     max_mem,
     executor,
     target_store,
@@ -119,11 +126,14 @@ def test_rechunk_dataset(
 
     # Validate decoded variables
     dst = xarray.open_zarr(target_store, decode_cf=True)
-    target_chunks_expected = (
-        target_chunks["a"]
-        if isinstance(target_chunks["a"], tuple)
-        else (target_chunks["a"]["x"], target_chunks["a"]["y"])
-    )
+    if chunk_by_dims:
+        target_chunks_expected = (20, shape[1])
+    else:
+        target_chunks_expected = (
+            target_chunks["a"]
+            if isinstance(target_chunks["a"], tuple)
+            else (target_chunks["a"]["x"], target_chunks["a"]["y"])
+        )
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
@@ -207,7 +217,13 @@ def test_rechunk_array(
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000])
 @pytest.mark.parametrize(
-    "target_chunks", [(200, 8000), (800, 8000), (8000, 200), (400, 8000),],
+    "target_chunks",
+    [
+        (200, 8000),
+        (800, 8000),
+        (8000, 200),
+        (400, 8000),
+    ],
 )
 def test_rechunk_dask_array(
     tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
@@ -361,7 +377,11 @@ def rechunk_args(tmp_path, request):
         target_chunks = (8000, 200)
 
         args.update(
-            {"source": array, "target_chunks": target_chunks, "max_mem": max_mem,}
+            {
+                "source": array,
+                "target_chunks": target_chunks,
+                "max_mem": max_mem,
+            }
         )
     return args
 
