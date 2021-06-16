@@ -2,6 +2,7 @@
 import html
 import textwrap
 from typing import Union
+from collections import defaultdict
 
 import dask
 import dask.array
@@ -311,6 +312,30 @@ def rechunk(
     return Rechunked(executor, plan, source, intermediate, target)
 
 
+def parse_target_chunks_from_dim_chunks(ds, target_chunks):
+    """
+    Calculate ``target_chunks`` suitable for ``rechunker.rechunk()`` using chunks defined for
+    dataset dimensions (similar to xarray's ``.rechunk()``) .
+
+    - If a dimension is missing from ``target_chunks`` then use the full length from ``ds``.
+    - If a chunk in ``target_chunks`` is larger than the full length of the variable in ``ds``,
+      then, again, use the full length from the dataset.
+    - If a dimension chunk is specified as -1, again, use the full length from the dataset.
+
+    """
+    group_chunks = defaultdict(list)
+    for var in ds.variables:
+        for dim in ds[var].dims:
+            if dim in target_chunks.keys() and target_chunks[dim] <= len(ds[dim]):
+                group_chunks[var].append(target_chunks[dim])
+            else:
+                group_chunks[var].append(len(ds[dim]))
+
+    # rechunk() expects chunks values to be a tuple. So let's convert them
+    group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}
+    return group_chunks_tuples
+
+
 def _setup_rechunk(
     source,
     target_chunks,
@@ -340,6 +365,11 @@ def _setup_rechunk(
             temp_group = None
         target_group = zarr.group(target_store)
         target_group.attrs.update(attrs)
+
+        # if ``target_chunks`` is specified per dimension (xarray ``.rechunk`` style), parse chunks for each coordinate/variable
+        if all([k in source.dims for k in target_chunks.keys()]):
+            # ! We can only apply this when all keys are indeed dimension, otherwise it falls back to the old method
+            target_chunks = parse_target_chunks_from_dim_chunks(source, target_chunks)
 
         copy_specs = []
         for name, variable in variables.items():

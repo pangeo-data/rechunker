@@ -49,7 +49,7 @@ def test_invalid_executor():
     [
         ({"a": (20, 10), "b": (20,)}, False),
         ({"a": {"x": 20, "y": 10}, "b": {"x": 20}}, False),
-        ({"x": 20}, True),
+        ({"x": 20}, True),  # ? Should this rechunk y? Probably not...
         ({"x": 20, "y": 1e5}, True),
         ({"x": 20, "y": -1}, True),
     ],
@@ -128,15 +128,22 @@ def test_rechunk_dataset(
     dst = xarray.open_zarr(target_store, decode_cf=True)
     if chunk_by_dims:
         target_chunks_expected = (20, shape[1])
+        expected_c_chunks = (
+            source_chunks[1:] if "y" not in target_chunks.keys() else shape[1:]
+        )
+
     else:
         target_chunks_expected = (
             target_chunks["a"]
             if isinstance(target_chunks["a"], tuple)
             else (target_chunks["a"]["x"], target_chunks["a"]["y"])
         )
+        expected_c_chunks = source_chunks[1:]
+
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
-    assert dst.c.data.chunksize == source_chunks[1:]
+    assert dst.c.data.chunksize == expected_c_chunks
+
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
 
