@@ -54,11 +54,7 @@ def chunk_ds():
                 numpy.random.randint(0, 101, (len(lon), len(lat), len(time))),
             )
         ),
-        coords=dict(
-            lon=lon,
-            lat=lat,
-            time=time,
-        ),
+        coords=dict(lon=lon, lat=lat, time=time,),
     )
     return ds
 
@@ -126,10 +122,7 @@ def test_parse_target_chunks_from_dim_chunks(
 @pytest.mark.parametrize("source_chunks", [(10, 50), (100, 5)])
 @pytest.mark.parametrize(
     "target_chunks",
-    [
-        {"a": (20, 10), "b": (20,)},
-        {"a": {"x": 20, "y": 10}, "b": {"x": 20}},
-    ],
+    [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}},],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
@@ -299,13 +292,10 @@ def test_rechunk_dataset_dimchunks(
     # Validate decoded variables
     dst = xarray.open_zarr(target_store, decode_cf=True)
     target_chunks_expected = (20, shape[1])
-    expected_c_chunks = (
-        source_chunks[1:] if "y" not in target_chunks.keys() else shape[1:]
-    )
 
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
-    assert dst.c.data.chunksize == expected_c_chunks
+    assert dst.c.data.chunksize == target_chunks_expected[1:]
 
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
@@ -387,13 +377,7 @@ def test_rechunk_array(
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000])
 @pytest.mark.parametrize(
-    "target_chunks",
-    [
-        (200, 8000),
-        (800, 8000),
-        (8000, 200),
-        (400, 8000),
-    ],
+    "target_chunks", [(200, 8000), (800, 8000), (8000, 200), (400, 8000),],
 )
 def test_rechunk_dask_array(
     tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
@@ -547,11 +531,7 @@ def rechunk_args(tmp_path, request):
         target_chunks = (8000, 200)
 
         args.update(
-            {
-                "source": array,
-                "target_chunks": target_chunks,
-                "max_mem": max_mem,
-            }
+            {"source": array, "target_chunks": target_chunks, "max_mem": max_mem,}
         )
     return args
 

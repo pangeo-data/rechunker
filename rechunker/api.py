@@ -1,8 +1,8 @@
 """User-facing functions."""
 import html
 import textwrap
-from typing import Union
 from collections import defaultdict
+from typing import Union
 
 import dask
 import dask.array
@@ -366,7 +366,8 @@ def _setup_rechunk(
         target_group = zarr.group(target_store)
         target_group.attrs.update(attrs)
 
-        # if ``target_chunks`` is specified per dimension (xarray ``.rechunk`` style), parse chunks for each coordinate/variable
+        # if ``target_chunks`` is specified per dimension (xarray ``.rechunk`` style),
+        # parse chunks for each coordinate/variable
         if all([k in source.dims for k in target_chunks.keys()]):
             # ! We can only apply this when all keys are indeed dimension, otherwise it falls back to the old method
             target_chunks = parse_target_chunks_from_dim_chunks(source, target_chunks)
