@@ -125,7 +125,16 @@ def test_parse_target_chunks_from_dim_chunks(
     [{"a": (20, 10), "b": (20,)}, {"a": {"x": 20, "y": 10}, "b": {"x": 20}},],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
+@pytest.mark.parametrize(
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
+)
 @pytest.mark.parametrize("target_store", ["target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr"])
 def test_rechunk_dataset(
@@ -134,7 +143,7 @@ def test_rechunk_dataset(
     source_chunks,
     target_chunks,
     max_mem,
-    executor,
+    c,
     target_store,
     temp_store,
 ):
@@ -217,7 +226,16 @@ def test_rechunk_dataset(
     ],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
+@pytest.mark.parametrize(
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+        requires_pywren("pywren"),
+    ],
+)
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset_dimchunks(
