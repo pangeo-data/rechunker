@@ -126,8 +126,8 @@ def test_parse_target_chunks_from_dim_chunks(
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 @pytest.mark.parametrize("executor", ["dask", "python", "prefect"])
-@pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
-@pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
+@pytest.mark.parametrize("target_store", ["target.zarr"])
+@pytest.mark.parametrize("temp_store", ["temp.zarr"])
 def test_rechunk_dataset(
     tmp_path,
     shape,
@@ -138,12 +138,8 @@ def test_rechunk_dataset(
     target_store,
     temp_store,
 ):
-    if target_store.startswith("mapper"):
-        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
-        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
-    else:
-        target_store = str(tmp_path / target_store)
-        temp_store = str(tmp_path / temp_store)
+    target_store = str(tmp_path / target_store)
+    temp_store = str(tmp_path / temp_store)
 
     a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
     a[-1] = numpy.nan
