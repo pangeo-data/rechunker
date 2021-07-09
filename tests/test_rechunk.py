@@ -41,6 +41,82 @@ def test_invalid_executor():
         api._get_executor("unknown")
 
 
+@pytest.fixture(scope="session")
+def chunk_ds():
+    lon = numpy.arange(-180, 180)
+    lat = numpy.arange(-90, 90)
+    time = numpy.arange(365)
+    ds = xarray.Dataset(
+        data_vars=dict(
+            aaa=(
+                ["lon", "lat", "time"],
+                numpy.random.randint(0, 101, (len(lon), len(lat), len(time))),
+            )
+        ),
+        coords=dict(lon=lon, lat=lat, time=time,),
+    )
+    return ds
+
+
+@pytest.mark.parametrize(
+    "target_chunks,expected",
+    [
+        pytest.param(
+            dict(lon=10),
+            dict(aaa=(10, 180, 365), lon=(10,), lat=(180,), time=(365,)),
+            id="just lon chunk",
+        ),
+        pytest.param(
+            dict(lat=10),
+            dict(aaa=(360, 10, 365), lon=(360,), lat=(10,), time=(365,)),
+            id="just lat chunk",
+        ),
+        pytest.param(
+            dict(time=10),
+            dict(aaa=(360, 180, 10), lon=(360,), lat=(180,), time=(10,)),
+            id="just time chunk",
+        ),
+        pytest.param(
+            dict(lon=10, lat=10, time=10),
+            dict(aaa=(10, 10, 10), lon=(10,), lat=(10,), time=(10,)),
+            id="all dimensions - equal chunks",
+        ),
+        pytest.param(
+            dict(lon=10, lat=20, time=30),
+            dict(aaa=(10, 20, 30), lon=(10,), lat=(20,), time=(30,)),
+            id="all dimensions - different chunks",
+        ),
+        pytest.param(
+            dict(lon=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="lon chunk greater than size",
+        ),
+        pytest.param(
+            dict(lat=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="lat chunk greater than size",
+        ),
+        pytest.param(
+            dict(time=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="time chunk greater than size",
+        ),
+        pytest.param(
+            dict(lon=1000, lat=1000, time=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="all chunks greater than size",
+        ),
+    ],
+)
+def test_parse_target_chunks_from_dim_chunks(
+    chunk_ds: xarray.Dataset, target_chunks, expected
+) -> None:
+    result = api.parse_target_chunks_from_dim_chunks(
+        ds=chunk_ds, target_chunks=target_chunks
+    )
+    assert expected == result
+
+
 @pytest.mark.parametrize("shape", [(100, 50)])
 @pytest.mark.parametrize("source_chunks", [(10, 50)])
 @pytest.mark.parametrize(
@@ -127,6 +203,80 @@ def test_rechunk_dataset(
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
     assert dst.c.data.chunksize == source_chunks[1:]
+    xarray.testing.assert_equal(ds.compute(), dst.compute())
+    assert ds.attrs == dst.attrs
+
+@pytest.mark.parametrize("shape", [(100, 50)])
+@pytest.mark.parametrize("source_chunks", [(10, 50), (100, 5)])
+@pytest.mark.parametrize(
+    "target_chunks",
+    [
+        {"x": 20},  # ? Should this rechunk y? Probably not...
+        {"x": 20, "y": 1e5},
+        {"x": 20, "y": -1},
+    ],
+)
+@pytest.mark.parametrize("max_mem", ["10MB"])
+@pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
+@pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
+def test_rechunk_dataset_dimchunks(
+    tmp_path,
+    shape,
+    source_chunks,
+    target_chunks,
+    max_mem,
+    target_store,
+    temp_store,
+):
+    if target_store.startswith("mapper"):
+        fsspec = pytest.importorskip("fsspec")
+        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
+        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
+    else:
+        target_store = str(tmp_path / target_store)
+        temp_store = str(tmp_path / temp_store)
+
+    a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
+    a[-1] = numpy.nan
+    ds = xarray.Dataset(
+        dict(
+            a=xarray.DataArray(
+                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
+            ),
+            b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
+        coords=dict(
+            cx=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            cy=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
+        attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
+    )
+    ds = ds.chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    options = dict(
+        a=dict(
+            compressor=zarr.Blosc(cname="zstd"),
+            dtype="int32",
+            scale_factor=0.1,
+            _FillValue=-9999,
+        )
+    )
+    rechunked = api.rechunk(
+        ds,
+        target_chunks=target_chunks,
+        max_mem=max_mem,
+        target_store=target_store,
+        target_options=options,
+        temp_store=temp_store,
+    )
+    assert isinstance(rechunked, api.Rechunked)
+    with dask.config.set(scheduler="single-threaded"):
+        rechunked.execute()
+
+    assert dst.a.data.chunksize == target_chunks_expected
+    assert dst.b.data.chunksize == target_chunks_expected[:1]
+    assert dst.c.data.chunksize == target_chunks_expected[1:]
+
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
 
