@@ -142,7 +142,7 @@ def test_rechunk_dataset(
     source_chunks,
     target_chunks,
     max_mem,
-    c,
+    executor,
     target_store,
     temp_store,
 ):
