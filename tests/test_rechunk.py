@@ -206,6 +206,7 @@ def test_rechunk_dataset(
     xarray.testing.assert_equal(ds.compute(), dst.compute())
     assert ds.attrs == dst.attrs
 
+
 @pytest.mark.parametrize("shape", [(100, 50)])
 @pytest.mark.parametrize("source_chunks", [(10, 50), (100, 5)])
 @pytest.mark.parametrize(
@@ -220,13 +221,7 @@ def test_rechunk_dataset(
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset_dimchunks(
-    tmp_path,
-    shape,
-    source_chunks,
-    target_chunks,
-    max_mem,
-    target_store,
-    temp_store,
+    tmp_path, shape, source_chunks, target_chunks, max_mem, target_store, temp_store,
 ):
     if target_store.startswith("mapper"):
         fsspec = pytest.importorskip("fsspec")
@@ -272,6 +267,19 @@ def test_rechunk_dataset_dimchunks(
     assert isinstance(rechunked, api.Rechunked)
     with dask.config.set(scheduler="single-threaded"):
         rechunked.execute()
+
+    # Validate decoded variables
+    dst = xarray.open_zarr(target_store, decode_cf=True)
+    target_chunks_expected = [
+        # target_chunks.get("x", source_chunks[0]),
+        # target_chunks.get("y", source_chunks[1]),
+        target_chunks.get("x", len(ds.x)),
+        target_chunks.get("y", len(ds.y)),
+    ]
+    if target_chunks_expected[1] < 0 or target_chunks_expected[1] > len(ds.y):
+        target_chunks_expected[1] = len(ds.y)
+
+    target_chunks_expected = tuple(target_chunks_expected)
 
     assert dst.a.data.chunksize == target_chunks_expected
     assert dst.b.data.chunksize == target_chunks_expected[:1]
