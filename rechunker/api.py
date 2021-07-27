@@ -328,8 +328,21 @@ def parse_target_chunks_from_dim_chunks(ds, target_chunks):
         for dim in ds[var].dims:
             if dim in target_chunks.keys() and target_chunks[dim] <= len(ds[dim]):
                 group_chunks[var].append(target_chunks[dim])
-            else:
+            elif (
+                dim in target_chunks.keys()
+                and (target_chunks[dim] > len(ds[dim]) or target_chunks[dim] < 0)
+            ) or not isinstance(ds[var].data, dask.array.Array):
+                # if a negative chunksize or a size larger than the dimension is given,
+                # default to length of the dimension
                 group_chunks[var].append(len(ds[dim]))
+            else:
+                # only for dask arrays
+                # if no chunking is provided for a given dimension
+                # leave chunksize as is for each variable
+                existing_chunksize = {
+                    k: v for k, v in zip(ds[var].dims, ds[var].data.chunksize)
+                }
+                group_chunks[var].append(existing_chunksize[dim])
 
     # rechunk() expects chunks values to be a tuple. So let's convert them
     group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}

@@ -271,10 +271,8 @@ def test_rechunk_dataset_dimchunks(
     # Validate decoded variables
     dst = xarray.open_zarr(target_store, decode_cf=True)
     target_chunks_expected = [
-        # target_chunks.get("x", source_chunks[0]),
-        # target_chunks.get("y", source_chunks[1]),
-        target_chunks.get("x", len(ds.x)),
-        target_chunks.get("y", len(ds.y)),
+        target_chunks.get("x", source_chunks[0]),
+        target_chunks.get("y", source_chunks[1]),
     ]
     if target_chunks_expected[1] < 0 or target_chunks_expected[1] > len(ds.y):
         target_chunks_expected[1] = len(ds.y)
