@@ -8,7 +8,40 @@ from rechunker.executors.util import (
     chunk_keys,
     split_into_direct_copies,
 )
-from rechunker.types import CopySpec, CopySpecExecutor, ReadableArray, WriteableArray
+from rechunker.types import (
+    CopySpec,
+    CopySpecExecutor,
+    ReadableArray,
+    WriteableArray,
+    PipelineExecutor,
+    ParallelPipelines,
+    MultiStagePipeline
+)
+
+
+class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
+    """An execution engine based on Apache Beam.
+
+    Execution plans for BeamExecutors are beam.PTransform objects.
+    """
+
+    def pipelines_to_plan(self, pipelines: ParallelPipelines) -> beam.PTransform:
+        return (
+                "Create Pipelines" >> beam.Create(pipelines)
+                | "Execute Parallel Pipelines" >> beam.Map(execute_pipeline)
+        )
+
+    def execute_plan(self, plan: beam.PTransform, **kwargs):
+        with beam.Pipeline(**kwargs) as pipeline:
+            pipeline | plan
+
+
+def execute_pipeline(pipeline: MultiStagePipeline) -> None:
+    for stage in pipeline:
+        if stage.map_args is None:
+            stage.func()
+        else:
+            stage.func(stage.map_args)
 
 
 class BeamExecutor(CopySpecExecutor[beam.PTransform]):
@@ -63,20 +96,20 @@ class _CopyStage(beam.PTransform):
 
     def expand(self, pcoll):
         return (
-            pcoll
-            | "Start" >> beam.FlatMap(_start_stage, self.specs_by_target)
-            | "CreateTasks" >> beam.FlatMapTuple(_copy_tasks)
-            # prevent undesirable fusion
-            # https://stackoverflow.com/a/54131856/809705
-            | "Reshuffle" >> beam.Reshuffle()
-            | "CopyChunks" >> beam.MapTuple(_copy_chunk)
-            # prepare inputs for the next stage (if any)
-            | "Finish" >> beam.Distinct()
+                pcoll
+                | "Start" >> beam.FlatMap(_start_stage, self.specs_by_target)
+                | "CreateTasks" >> beam.FlatMapTuple(_copy_tasks)
+                # prevent undesirable fusion
+                # https://stackoverflow.com/a/54131856/809705
+                | "Reshuffle" >> beam.Reshuffle()
+                | "CopyChunks" >> beam.MapTuple(_copy_chunk)
+                # prepare inputs for the next stage (if any)
+                | "Finish" >> beam.Distinct()
         )
 
 
 def _start_stage(
-    target_id: str, specs_by_target: Mapping[str, DirectCopySpec],
+        target_id: str, specs_by_target: Mapping[str, DirectCopySpec],
 ) -> Iterator[Tuple[str, DirectCopySpec]]:
     spec = specs_by_target.get(target_id)
     if spec is not None:
@@ -84,17 +117,17 @@ def _start_stage(
 
 
 def _copy_tasks(
-    target_id: str, spec: DirectCopySpec
+        target_id: str, spec: DirectCopySpec
 ) -> Iterator[Tuple[str, Tuple[slice, ...], ReadableArray, WriteableArray]]:
     for key in chunk_keys(spec.source.shape, spec.chunks):
         yield target_id, key, spec.source, spec.target
 
 
 def _copy_chunk(
-    target_id: str,
-    key: Tuple[slice, ...],
-    source: ReadableArray,
-    target: WriteableArray,
+        target_id: str,
+        key: Tuple[slice, ...],
+        source: ReadableArray,
+        target: WriteableArray,
 ) -> str:
     target[key] = source[key]
     return target_id

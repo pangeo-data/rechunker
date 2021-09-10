@@ -57,7 +57,7 @@ class CopySpec(NamedTuple):
 
 
 class Stage(NamedTuple):
-    """A Stage is when single function is mapped over multiple imputs.
+    """A Stage is when single function is mapped over multiple inputs.
 
     Attributes
     ----------
