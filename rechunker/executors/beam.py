@@ -15,7 +15,7 @@ from rechunker.types import (
     WriteableArray,
     PipelineExecutor,
     ParallelPipelines,
-    MultiStagePipeline
+    StatefulMultiStagePipeline
 )
 
 
@@ -36,12 +36,12 @@ class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
             pipeline | plan
 
 
-def execute_pipeline(pipeline: MultiStagePipeline) -> None:
-    for stage in pipeline:
+def execute_pipeline(pipeline: StatefulMultiStagePipeline) -> None:
+    for stage in pipeline.stages:
         if stage.map_args is None:
-            stage.func()
+            stage.func(context=pipeline.context)
         else:
-            stage.func(stage.map_args)
+            stage.func(stage.map_args, context=pipeline.context)
 
 
 class BeamExecutor(CopySpecExecutor[beam.PTransform]):
