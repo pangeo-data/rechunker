@@ -58,6 +58,23 @@ def chunk_ds():
     return ds
 
 
+@pytest.fixture(scope="session")
+def chunk_ds_dask():
+    lon = numpy.arange(-180, 180)
+    lat = numpy.arange(-90, 90)
+    time = numpy.arange(365)
+    ds = xarray.Dataset(
+        data_vars=dict(
+            aaa=(
+                ["lon", "lat", "time"],
+                numpy.random.randint(0, 101, (len(lon), len(lat), len(time))),
+            )
+        ),
+        coords=dict(lon=lon, lat=lat, time=time,),
+    )
+    return ds.chunk({"time": -1})
+
+
 @pytest.mark.parametrize(
     "target_chunks,expected",
     [
@@ -115,6 +132,37 @@ def test_parse_target_chunks_from_dim_chunks(
         ds=chunk_ds, target_chunks=target_chunks
     )
     assert expected == result
+
+
+@pytest.mark.parametrize(
+    "dask_chunks, dim, target_chunks, expected",
+    [
+        pytest.param(
+            False, "lon", dict(lon=10), 10, id="small lon chunks numpy array",
+        ),
+        pytest.param(False, "lon", dict(lon=10), 10, id="small lon chunks dask array",),
+        pytest.param(False, "time", dict(time=400), 365, id="time chunks exceed len",),
+        pytest.param(False, "time", dict(time=-1), 365, id="negative time chunks",),
+        pytest.param(
+            {"time": 1},
+            "time",
+            dict(time=-1),
+            365,
+            id="negative time chunks dask array",
+        ),
+        pytest.param(
+            {"time": 5}, "time", dict(), 5, id="preserve small time chunks dask array",
+        ),
+        pytest.param(
+            False, "lon", dict(), 360, id="preserve full length chunk numpy array",
+        ),
+    ],
+)
+def test_get_dim_chunk(dask_chunks, chunk_ds, dim, target_chunks, expected):
+    if dask_chunks:
+        chunk_ds = chunk_ds.chunk(dask_chunks)
+    chunk = api.get_dim_chunk(chunk_ds.aaa, dim, target_chunks)
+    assert chunk == expected
 
 
 @pytest.mark.parametrize("shape", [(100, 50)])

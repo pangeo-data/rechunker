@@ -312,6 +312,21 @@ def rechunk(
     return Rechunked(executor, plan, source, intermediate, target)
 
 
+def get_dim_chunk(da, dim, target_chunks):
+    if dim in target_chunks.keys():
+        if target_chunks[dim] > len(da[dim]) or target_chunks[dim] < 0:
+            dim_chunk = len(da[dim])
+        else:
+            dim_chunk = target_chunks[dim]
+    else:
+        if not isinstance(da.data, dask.array.Array):
+            dim_chunk = len(da[dim])
+        else:
+            existing_chunksizes = {k: v for k, v in zip(da.dims, da.data.chunksize)}
+            dim_chunk = existing_chunksizes[dim]
+    return dim_chunk
+
+
 def parse_target_chunks_from_dim_chunks(ds, target_chunks):
     """
     Calculate ``target_chunks`` suitable for ``rechunker.rechunk()`` using chunks defined for
@@ -324,25 +339,10 @@ def parse_target_chunks_from_dim_chunks(ds, target_chunks):
 
     """
     group_chunks = defaultdict(list)
+
     for var in ds.variables:
         for dim in ds[var].dims:
-            if dim in target_chunks.keys() and target_chunks[dim] <= len(ds[dim]):
-                group_chunks[var].append(target_chunks[dim])
-            elif (
-                dim in target_chunks.keys()
-                and (target_chunks[dim] > len(ds[dim]) or target_chunks[dim] < 0)
-            ) or not isinstance(ds[var].data, dask.array.Array):
-                # if a negative chunksize or a size larger than the dimension is given,
-                # default to length of the dimension
-                group_chunks[var].append(len(ds[dim]))
-            else:
-                # only for dask arrays
-                # if no chunking is provided for a given dimension
-                # leave chunksize as is for each variable
-                existing_chunksize = {
-                    k: v for k, v in zip(ds[var].dims, ds[var].data.chunksize)
-                }
-                group_chunks[var].append(existing_chunksize[dim])
+            group_chunks[var].append(get_dim_chunk(ds[var], dim, target_chunks))
 
     # rechunk() expects chunks values to be a tuple. So let's convert them
     group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}
