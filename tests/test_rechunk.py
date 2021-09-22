@@ -137,26 +137,13 @@ def test_parse_target_chunks_from_dim_chunks(
 @pytest.mark.parametrize(
     "dask_chunks, dim, target_chunks, expected",
     [
-        pytest.param(
-            False, "lon", dict(lon=10), 10, id="small lon chunks numpy array",
-        ),
-        pytest.param(False, "lon", dict(lon=10), 10, id="small lon chunks dask array",),
-        pytest.param(False, "time", dict(time=400), 365, id="time chunks exceed len",),
-        pytest.param(False, "time", dict(time=-1), 365, id="negative time chunks",),
-        pytest.param(
-            {"time": 1},
-            "time",
-            dict(time=-1),
-            365,
-            id="negative time chunks dask array",
-        ),
-        pytest.param(
-            {"time": 5}, "time", dict(), 5, id="preserve small time chunks dask array",
-        ),
-        pytest.param(
-            False, "lon", dict(), 360, id="preserve full length chunk numpy array",
-        ),
-    ],
+        # fmt: off
+        pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks numpy array",),
+        pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks dask array",),
+        pytest.param(None, "time", dict(time=400), 365, id="time chunks exceed len",),
+        pytest.param({"time": 1}, "time", dict(time=-1), 365, id="negative time chunks dask array",),
+        # fmt: on
+    ]
 )
 def test_get_dim_chunk(dask_chunks, chunk_ds, dim, target_chunks, expected):
     if dask_chunks:
