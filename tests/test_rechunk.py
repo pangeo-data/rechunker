@@ -72,7 +72,7 @@ def chunk_ds():
         pytest.param(dict(time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="time chunk greater than size"),
         pytest.param(dict(lon=1000, lat=1000, time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="all chunks greater than size"),
         # fmt: on
-    ],
+    ]
 )
 def test_parse_target_chunks_from_dim_chunks(
     chunk_ds: xarray.Dataset, target_chunks, expected
