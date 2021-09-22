@@ -58,71 +58,20 @@ def chunk_ds():
     return ds
 
 
-@pytest.fixture(scope="session")
-def chunk_ds_dask():
-    lon = numpy.arange(-180, 180)
-    lat = numpy.arange(-90, 90)
-    time = numpy.arange(365)
-    ds = xarray.Dataset(
-        data_vars=dict(
-            aaa=(
-                ["lon", "lat", "time"],
-                numpy.random.randint(0, 101, (len(lon), len(lat), len(time))),
-            )
-        ),
-        coords=dict(lon=lon, lat=lat, time=time,),
-    )
-    return ds.chunk({"time": -1})
-
-
 @pytest.mark.parametrize(
     "target_chunks,expected",
     [
-        pytest.param(
-            dict(lon=10),
-            dict(aaa=(10, 180, 365), lon=(10,), lat=(180,), time=(365,)),
-            id="just lon chunk",
-        ),
-        pytest.param(
-            dict(lat=10),
-            dict(aaa=(360, 10, 365), lon=(360,), lat=(10,), time=(365,)),
-            id="just lat chunk",
-        ),
-        pytest.param(
-            dict(time=10),
-            dict(aaa=(360, 180, 10), lon=(360,), lat=(180,), time=(10,)),
-            id="just time chunk",
-        ),
-        pytest.param(
-            dict(lon=10, lat=10, time=10),
-            dict(aaa=(10, 10, 10), lon=(10,), lat=(10,), time=(10,)),
-            id="all dimensions - equal chunks",
-        ),
-        pytest.param(
-            dict(lon=10, lat=20, time=30),
-            dict(aaa=(10, 20, 30), lon=(10,), lat=(20,), time=(30,)),
-            id="all dimensions - different chunks",
-        ),
-        pytest.param(
-            dict(lon=1000),
-            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
-            id="lon chunk greater than size",
-        ),
-        pytest.param(
-            dict(lat=1000),
-            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
-            id="lat chunk greater than size",
-        ),
-        pytest.param(
-            dict(time=1000),
-            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
-            id="time chunk greater than size",
-        ),
-        pytest.param(
-            dict(lon=1000, lat=1000, time=1000),
-            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
-            id="all chunks greater than size",
-        ),
+        # fmt: off
+        pytest.param(dict(lon=10), dict(aaa=(10, 180, 365), lon=(10,), lat=(180,), time=(365,)), id="just lon chunk"),
+        pytest.param(dict(lat=10), dict(aaa=(360, 10, 365), lon=(360,), lat=(10,), time=(365,)), id="just lat chunk"),
+        pytest.param(dict(time=10), dict(aaa=(360, 180, 10), lon=(360,), lat=(180,), time=(10,)), id="just time chunk"),
+        pytest.param(dict(lon=10, lat=10, time=10), dict(aaa=(10, 10, 10), lon=(10,), lat=(10,), time=(10,)), id="all dimensions - equal chunks"),
+        pytest.param(dict(lon=10, lat=20, time=30), dict(aaa=(10, 20, 30), lon=(10,), lat=(20,), time=(30,)), id="all dimensions - different chunks"),
+        pytest.param(dict(lon=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="lon chunk greater than size"),
+        pytest.param(dict(lat=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="lat chunk greater than size"),
+        pytest.param(dict(time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="time chunk greater than size"),
+        pytest.param(dict(lon=1000, lat=1000, time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="all chunks greater than size"),
+        # fmt: on
     ],
 )
 def test_parse_target_chunks_from_dim_chunks(
