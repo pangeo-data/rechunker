@@ -197,7 +197,7 @@ def test_rechunk_dataset(
     "target_chunks",
     [
         {"x": 20},  # ? Should this rechunk y? Probably not...
-        {"x": 20, "y": 1e5},
+        {"x": 20, "y": 100_000},
         {"x": 20, "y": -1},
     ],
 )
