@@ -5,6 +5,7 @@ from typing import Union
 
 import dask
 import dask.array
+import numcodecs
 import xarray
 import zarr
 from xarray.backends.zarr import (
@@ -172,6 +173,9 @@ def _validate_options(options):
     if not options:
         return
     for o in options:
+        # allow object_codec of type VLenArray for Zarr ragged arrays
+        if o == "object_codec" and type(options[o]) == numcodecs.vlen.VLenArray:
+            continue
         if o not in ZARR_OPTIONS:
             raise ValueError(
                 f"Zarr options must not include {o} (got {o}={options[o]}). "
