@@ -61,18 +61,52 @@ def chunk_ds():
 @pytest.mark.parametrize(
     "target_chunks,expected",
     [
-        # fmt: off
-        pytest.param(dict(lon=10), dict(aaa=(10, 180, 365), lon=(10,), lat=(180,), time=(365,)), id="just lon chunk"),
-        pytest.param(dict(lat=10), dict(aaa=(360, 10, 365), lon=(360,), lat=(10,), time=(365,)), id="just lat chunk"),
-        pytest.param(dict(time=10), dict(aaa=(360, 180, 10), lon=(360,), lat=(180,), time=(10,)), id="just time chunk"),
-        pytest.param(dict(lon=10, lat=10, time=10), dict(aaa=(10, 10, 10), lon=(10,), lat=(10,), time=(10,)), id="all dimensions - equal chunks"),
-        pytest.param(dict(lon=10, lat=20, time=30), dict(aaa=(10, 20, 30), lon=(10,), lat=(20,), time=(30,)), id="all dimensions - different chunks"),
-        pytest.param(dict(lon=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="lon chunk greater than size"),
-        pytest.param(dict(lat=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="lat chunk greater than size"),
-        pytest.param(dict(time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="time chunk greater than size"),
-        pytest.param(dict(lon=1000, lat=1000, time=1000), dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)), id="all chunks greater than size"),
-        # fmt: on
-    ]
+        pytest.param(
+            dict(lon=10),
+            dict(aaa=(10, 180, 365), lon=(10,), lat=(180,), time=(365,)),
+            id="just lon chunk",
+        ),
+        pytest.param(
+            dict(lat=10),
+            dict(aaa=(360, 10, 365), lon=(360,), lat=(10,), time=(365,)),
+            id="just lat chunk",
+        ),
+        pytest.param(
+            dict(time=10),
+            dict(aaa=(360, 180, 10), lon=(360,), lat=(180,), time=(10,)),
+            id="just time chunk",
+        ),
+        pytest.param(
+            dict(lon=10, lat=10, time=10),
+            dict(aaa=(10, 10, 10), lon=(10,), lat=(10,), time=(10,)),
+            id="all dimensions - equal chunks",
+        ),
+        pytest.param(
+            dict(lon=10, lat=20, time=30),
+            dict(aaa=(10, 20, 30), lon=(10,), lat=(20,), time=(30,)),
+            id="all dimensions - different chunks",
+        ),
+        pytest.param(
+            dict(lon=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="lon chunk greater than size",
+        ),
+        pytest.param(
+            dict(lat=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="lat chunk greater than size",
+        ),
+        pytest.param(
+            dict(time=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="time chunk greater than size",
+        ),
+        pytest.param(
+            dict(lon=1000, lat=1000, time=1000),
+            dict(aaa=(360, 180, 365), lon=(360,), lat=(180,), time=(365,)),
+            id="all chunks greater than size",
+        ),
+    ],
 )
 def test_parse_target_chunks_from_dim_chunks(
     chunk_ds: xarray.Dataset, target_chunks, expected
@@ -86,13 +120,17 @@ def test_parse_target_chunks_from_dim_chunks(
 @pytest.mark.parametrize(
     "dask_chunks, dim, target_chunks, expected",
     [
-        # fmt: off
         pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks numpy array",),
         pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks dask array",),
         pytest.param(None, "time", dict(time=400), 365, id="time chunks exceed len",),
-        pytest.param({"time": 1}, "time", dict(time=-1), 365, id="negative time chunks dask array",),
-        # fmt: on
-    ]
+        pytest.param(
+            {"time": 1},
+            "time",
+            dict(time=-1),
+            365,
+            id="negative time chunks dask array",
+        ),
+    ],
 )
 def test_get_dim_chunk(dask_chunks, chunk_ds, dim, target_chunks, expected):
     if dask_chunks:
@@ -196,25 +234,22 @@ def test_rechunk_dataset(
 @pytest.mark.parametrize(
     "target_chunks",
     [
-        {"x": 20},  # ? Should this rechunk y? Probably not...
+        {"x": 20},  # This should leave y chunks untouched
         {"x": 20, "y": 100_000},
         {"x": 20, "y": -1},
     ],
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
-@pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
-@pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_dataset_dimchunks(
     tmp_path, shape, source_chunks, target_chunks, max_mem, target_store, temp_store,
 ):
-    if target_store.startswith("mapper"):
-        fsspec = pytest.importorskip("fsspec")
-        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
-        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
-    else:
-        target_store = str(tmp_path / target_store)
-        temp_store = str(tmp_path / temp_store)
+    temp_store = "temp.zarr"
+    target_store = "target.zarr"
+    target_store = str(tmp_path / target_store)
+    temp_store = str(tmp_path / temp_store)
 
+    # TODO: simplify the creation of datasets here and in `test_rechunk_dataset`
+    # TODO: See https://github.com/pangeo-data/rechunker/pull/93#discussion_r713939185
     a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
     a[-1] = numpy.nan
     ds = xarray.Dataset(
