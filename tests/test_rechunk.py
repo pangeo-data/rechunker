@@ -241,7 +241,7 @@ def test_rechunk_dataset(
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 def test_rechunk_dataset_dimchunks(
-    tmp_path, shape, source_chunks, target_chunks, max_mem, target_store, temp_store,
+    tmp_path, shape, source_chunks, target_chunks, max_mem,
 ):
     temp_store = "temp.zarr"
     target_store = "target.zarr"
