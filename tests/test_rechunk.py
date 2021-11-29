@@ -58,6 +58,30 @@ def chunk_ds():
     return ds
 
 
+def example_dataset(shape):
+    # TODO: simplify the creation of datasets here
+    # TODO: See https://github.com/pangeo-data/rechunker/pull/93#discussion_r713939185
+    # TODO: Maybe it is best to refactor tests to use `chunk_ds`
+
+    a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
+    a[-1] = numpy.nan
+    ds = xarray.Dataset(
+        dict(
+            a=xarray.DataArray(
+                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
+            ),
+            b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
+        coords=dict(
+            cx=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
+            cy=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
+        ),
+        attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
+    )
+    return ds
+
+
 @pytest.mark.parametrize(
     "target_chunks,expected",
     [
@@ -167,23 +191,7 @@ def test_rechunk_dataset(
         target_store = str(tmp_path / target_store)
         temp_store = str(tmp_path / temp_store)
 
-    a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
-    a[-1] = numpy.nan
-    ds = xarray.Dataset(
-        dict(
-            a=xarray.DataArray(
-                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
-            ),
-            b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
-            c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
-        ),
-        coords=dict(
-            cx=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
-            cy=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
-        ),
-        attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
-    )
-    ds = ds.chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
     options = dict(
         a=dict(
             compressor=zarr.Blosc(cname="zstd"),
@@ -248,25 +256,7 @@ def test_rechunk_dataset_dimchunks(
     target_store = str(tmp_path / target_store)
     temp_store = str(tmp_path / temp_store)
 
-    # TODO: simplify the creation of datasets here and in `test_rechunk_dataset`
-    # TODO: See https://github.com/pangeo-data/rechunker/pull/93#discussion_r713939185
-    a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
-    a[-1] = numpy.nan
-    ds = xarray.Dataset(
-        dict(
-            a=xarray.DataArray(
-                a, dims=["x", "y"], attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"}
-            ),
-            b=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
-            c=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
-        ),
-        coords=dict(
-            cx=xarray.DataArray(numpy.ones(shape[0]), dims=["x"]),
-            cy=xarray.DataArray(numpy.ones(shape[1]), dims=["y"]),
-        ),
-        attrs={"a1": 1, "a2": [1, 2, 3], "a3": "x"},
-    )
-    ds = ds.chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
     options = dict(
         a=dict(
             compressor=zarr.Blosc(cname="zstd"),
