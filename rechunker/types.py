@@ -2,12 +2,14 @@
 from typing import (
     Any,
     Callable,
+    Dict,
     Generic,
     Iterable,
     NamedTuple,
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
 
 # TODO: replace with Protocols, once Python 3.8+ is required
@@ -57,7 +59,7 @@ class CopySpec(NamedTuple):
 
 
 class Stage(NamedTuple):
-    """A Stage is when single function is mapped over multiple imputs.
+    """A Stage is when single function is mapped over multiple inputs.
 
     Attributes
     ----------
@@ -66,15 +68,28 @@ class Stage(NamedTuple):
     map_args: List, Optional
         Arguments which will be mapped to the function
     """
-
     func: Callable
     map_args: Optional[Iterable] = None
     # TODO: figure out how to make optional, like for a dataclass
     # annotations: Dict = {}
 
 
+class StatefulMultiStagePipeline(NamedTuple):
+    """A pipeline where each stage shares the same context.
+
+    Attributes
+    ----------
+    stages: Iterable[Stage]
+        A function to be called in this stage. Accepts either 0 or 1 arguments.
+    context: Dict, Optional
+        Named shared state for all stages.
+    """
+    stages: Iterable[Stage]
+    context: Optional[Dict] = None
+
+
 # A MultiStagePipeline contains one or more stages, to be executed in sequence
-MultiStagePipeline = Iterable[Stage]
+MultiStagePipeline = Union[Iterable[Stage], StatefulMultiStagePipeline]
 
 # ParallelPipelines contains one or more MultiStagePipelines, to be executed in parallel
 ParallelPipelines = Iterable[MultiStagePipeline]

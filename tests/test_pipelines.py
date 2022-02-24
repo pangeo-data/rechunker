@@ -10,6 +10,7 @@ pytest.importorskip("prefect")
 from rechunker.executors.dask import DaskPipelineExecutor
 from rechunker.executors.prefect import PrefectPipelineExecutor
 from rechunker.executors.python import PythonPipelineExecutor
+from rechunker.executors.beam import BeamPipelineExecutor
 from rechunker.types import Stage
 
 
@@ -37,7 +38,7 @@ def example_pipeline(tmpdir_factory):
 
 
 @pytest.mark.parametrize(
-    "Executor", [PythonPipelineExecutor, DaskPipelineExecutor, PrefectPipelineExecutor]
+    "Executor", [PythonPipelineExecutor, DaskPipelineExecutor, PrefectPipelineExecutor, BeamPipelineExecutor]
 )
 def test_pipeline(example_pipeline, Executor):
     pipeline, tmpdir = example_pipeline
