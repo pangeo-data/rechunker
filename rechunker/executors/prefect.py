@@ -6,10 +6,6 @@ from rechunker.types import ParallelPipelines, PipelineExecutor
 class PrefectPipelineExecutor(PipelineExecutor[Flow]):
     """An execution engine based on Prefect.
 
-    Supports copying between any arrays that implement ``__getitem__`` and
-    ``__setitem__`` for tuples of ``slice`` objects. Array must also be
-    serializable by Prefect (i.e., with pickle).
-
     Execution plans for PrefectExecutor are prefect.Flow objects.
     """
 
