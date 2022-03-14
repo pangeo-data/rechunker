@@ -6,7 +6,7 @@ import dask.array
 from dask.delayed import Delayed
 
 from rechunker.types import (
-    MultiStagePipeline,
+    Pipeline,
     ParallelPipelines,
     PipelineExecutor,
     Stage,
@@ -33,7 +33,7 @@ def _make_pipelines(pipelines: ParallelPipelines) -> Delayed:
     return _merge(*pipelines_delayed)
 
 
-def _make_pipeline(pipeline: MultiStagePipeline) -> Delayed:
+def _make_pipeline(pipeline: Pipeline) -> Delayed:
     stages_delayed = [_make_stage(stage) for stage in pipeline]
     d = reduce(_add_upstream, stages_delayed)
     return d

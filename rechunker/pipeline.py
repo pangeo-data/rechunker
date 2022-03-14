@@ -8,10 +8,10 @@ import numpy as np
 from .types import (
     CopySpec,
     CopySpecExecutor,
-    MultiStagePipeline,
+    Stage,
+    Pipeline,
     ParallelPipelines,
     ReadableArray,
-    Stage,
     WriteableArray,
 )
 
@@ -49,18 +49,47 @@ def copy_stage(
     return Stage(_copy_chunk, keys)
 
 
-def spec_to_pipeline(spec: CopySpec) -> MultiStagePipeline:
-    pipeline = []
+def copy_read_to_write(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.read.array[chunk_key])
+    config.write.array[chunk_key] = data
+
+
+def copy_read_to_intermediate(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.read.array[chunk_key])
+    config.intermediate.array[chunk_key] = data
+
+
+def copy_intermediate_to_write(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.intermediate.array[chunk_key])
+    config.write.array[chunk_key] = data
+
+
+def spec_to_pipeline(spec: CopySpec) -> Pipeline:
     if spec.intermediate.array is None:
-        pipeline.append(copy_stage(spec.read.array, spec.write.array, spec.read.chunks))
+        stages = [
+            Stage(
+                copy_read_to_write,
+                "copy_read_to_write",
+                mappable=chunk_keys(spec.read.array.shape, spec.read.chunks),
+            )
+        ]
     else:
-        pipeline.append(
-            copy_stage(spec.read.array, spec.intermediate.array, spec.read.chunks)
-        )
-        pipeline.append(
-            copy_stage(spec.intermediate.array, spec.write.array, spec.write.chunks)
-        )
-    return pipeline
+        stages = [
+            Stage(
+                copy_read_to_intermediate,
+                "copy_read_to_intermediate",
+                mappable=chunk_keys(spec.read.array.shape, spec.read.chunks),
+            ),
+            Stage(
+                copy_intermediate_to_write,
+                "copy_intermediate_to_write",
+                mappable=chunk_keys(spec.intermediate.array.shape, spec.intermediate.chunks),
+            )
+        ]
+    return Pipeline(stages, config=spec)
 
 
 def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:

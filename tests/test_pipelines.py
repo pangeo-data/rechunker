@@ -10,7 +10,9 @@ pytest.importorskip("prefect")
 from rechunker.executors.dask import DaskPipelineExecutor
 from rechunker.executors.prefect import PrefectPipelineExecutor
 from rechunker.executors.python import PythonPipelineExecutor
-from rechunker.types import Stage
+from rechunker.types import Stage, Pipeline
+
+from dataclasses import dataclass
 
 
 @pytest.fixture
@@ -18,20 +20,26 @@ def example_pipeline(tmpdir_factory):
 
     tmp = tmpdir_factory.mktemp("pipeline_data")
 
-    def func0():
-        tmp.join("func0.log").ensure(file=True)
-        assert not tmp.join("func1_a.log").check(file=True)
+    @dataclass(frozen=True)
+    class Config:
+        fname0: str
+        fname1: str
+        fname_pattern: str
 
-    stage0 = Stage(func0)
+    config = Config("func0.log",  "func1_a.log", "func1_{arg}.log")
 
-    def func1(arg):
-        tmp.join(f"func1_{arg}.log").ensure(file=True)
+    def func0(config=Config):
+        tmp.join(config.fname0).ensure(file=True)
+        assert not tmp.join(config.fname1).check(file=True)
 
-    stage1 = Stage(func1, ["a", "b", 3])
+    stage0 = Stage(func0, "write_some_files")
 
-    # MultiStagePipeline
-    pipeline = [stage0, stage1]
-    # ParallelPipelines
+    def func1(arg, config=Config):
+        fname = config.fname_pattern.format(arg=arg)
+        tmp.join(fname).ensure(file=True)
+
+    stage1 = Stage(func1, "write_many_files", mappable=["a", "b", 3])
+    pipeline = Pipeline(stages=[stage0, stage1], config=config)
     pipelines = [pipeline]
     return pipelines, tmp
 
