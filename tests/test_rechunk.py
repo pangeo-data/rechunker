@@ -6,6 +6,7 @@ import dask
 import dask.array as dsa
 import dask.core
 import numpy
+import numpy as np
 import pytest
 import xarray
 import zarr
@@ -196,10 +197,14 @@ def test_rechunk_array(
     assert target_array.chunks == tuple(target_chunks_list)
     assert dict(source_array.attrs) == dict(target_array.attrs)
 
+    # print(rechunked.plan[0].dask)
     result = rechunked.execute()
     assert isinstance(result, zarr.Array)
-    a_tar = dsa.from_zarr(target_array)
-    assert dsa.equal(a_tar, 1).all().compute()
+    a_tar = np.asarray(result)
+    print(a_tar.shape, a_tar.dtype)
+    np.testing.assert_equal(a_tar, 1)
+    # a_tar = dsa.from_zarr(target_array)
+    # assert dsa.equal(a_tar, 1).all().compute()
 
 
 @pytest.mark.parametrize("shape", [(8000, 8000)])

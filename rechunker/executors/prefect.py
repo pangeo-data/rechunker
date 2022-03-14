@@ -1,4 +1,4 @@
-from prefect import task, Flow, unmapped
+from prefect import Flow, task, unmapped
 
 from rechunker.types import ParallelPipelines, PipelineExecutor
 
@@ -17,7 +17,7 @@ class PrefectPipelineExecutor(PipelineExecutor[Flow]):
                     stage_task = task(stage.function, name=stage.name)
                     if stage.mappable is not None:
                         stage_task_called = stage_task.map(
-                            stage.mappable,
+                            list(stage.mappable),  # prefect doesn't accept a generator
                             config=unmapped(pipeline.config),
                             upstream_tasks=[unmapped(t) for t in upstream_tasks],
                         )

@@ -8,10 +8,10 @@ import numpy as np
 from .types import (
     CopySpec,
     CopySpecExecutor,
-    Stage,
-    Pipeline,
     ParallelPipelines,
+    Pipeline,
     ReadableArray,
+    Stage,
     WriteableArray,
 )
 
@@ -33,22 +33,6 @@ def chunk_keys(
         )
 
 
-def copy_stage(
-    source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
-) -> Stage:
-    # use a closure to eliminate extra arguments
-    def _copy_chunk(chunk_key):
-        # calling np.asarray here allows the source to be a dask array
-        # TODO: could we asyncify this to operate in a streaming fashion
-        # make sure this is not happening inside a dask scheduler
-        with dask.config.set(scheduler="single-threaded"):
-            data = np.asarray(source[chunk_key])
-        target[chunk_key] = data
-
-    keys = list(chunk_keys(source.shape, chunks))
-    return Stage(_copy_chunk, keys)
-
-
 def copy_read_to_write(chunk_key, *, config=CopySpec):
     with dask.config.set(scheduler="single-threaded"):
         data = np.asarray(config.read.array[chunk_key])
@@ -68,12 +52,13 @@ def copy_intermediate_to_write(chunk_key, *, config=CopySpec):
 
 
 def spec_to_pipeline(spec: CopySpec) -> Pipeline:
+    shape = spec.read.array.shape
     if spec.intermediate.array is None:
         stages = [
             Stage(
                 copy_read_to_write,
                 "copy_read_to_write",
-                mappable=chunk_keys(spec.read.array.shape, spec.read.chunks),
+                mappable=chunk_keys(shape, spec.write.chunks),
             )
         ]
     else:
@@ -81,13 +66,13 @@ def spec_to_pipeline(spec: CopySpec) -> Pipeline:
             Stage(
                 copy_read_to_intermediate,
                 "copy_read_to_intermediate",
-                mappable=chunk_keys(spec.read.array.shape, spec.read.chunks),
+                mappable=chunk_keys(shape, spec.intermediate.chunks),
             ),
             Stage(
                 copy_intermediate_to_write,
                 "copy_intermediate_to_write",
-                mappable=chunk_keys(spec.intermediate.array.shape, spec.intermediate.chunks),
-            )
+                mappable=chunk_keys(shape, spec.write.chunks),
+            ),
         ]
     return Pipeline(stages, config=spec)
 
