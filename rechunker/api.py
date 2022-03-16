@@ -1,6 +1,7 @@
 """User-facing functions."""
 import html
 import textwrap
+from collections import defaultdict
 from typing import Union
 
 import dask
@@ -311,6 +312,43 @@ def rechunk(
     return Rechunked(executor, plan, source, intermediate, target)
 
 
+def get_dim_chunk(da, dim, target_chunks):
+    if dim in target_chunks.keys():
+        if target_chunks[dim] > len(da[dim]) or target_chunks[dim] < 0:
+            dim_chunk = len(da[dim])
+        else:
+            dim_chunk = target_chunks[dim]
+    else:
+        if not isinstance(da.data, dask.array.Array):
+            dim_chunk = len(da[dim])
+        else:
+            existing_chunksizes = {k: v for k, v in zip(da.dims, da.data.chunksize)}
+            dim_chunk = existing_chunksizes[dim]
+    return dim_chunk
+
+
+def parse_target_chunks_from_dim_chunks(ds, target_chunks):
+    """
+    Calculate ``target_chunks`` suitable for ``rechunker.rechunk()`` using chunks defined for
+    dataset dimensions (similar to xarray's ``.rechunk()``) .
+
+    - If a dimension is missing from ``target_chunks`` then use the full length from ``ds``.
+    - If a chunk in ``target_chunks`` is larger than the full length of the variable in ``ds``,
+      then, again, use the full length from the dataset.
+    - If a dimension chunk is specified as -1, again, use the full length from the dataset.
+
+    """
+    group_chunks = defaultdict(list)
+
+    for var in ds.variables:
+        for dim in ds[var].dims:
+            group_chunks[var].append(get_dim_chunk(ds[var], dim, target_chunks))
+
+    # rechunk() expects chunks values to be a tuple. So let's convert them
+    group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}
+    return group_chunks_tuples
+
+
 def _setup_rechunk(
     source,
     target_chunks,
@@ -340,6 +378,12 @@ def _setup_rechunk(
             temp_group = None
         target_group = zarr.group(target_store)
         target_group.attrs.update(attrs)
+
+        # if ``target_chunks`` is specified per dimension (xarray ``.rechunk`` style),
+        # parse chunks for each coordinate/variable
+        if all([k in source.dims for k in target_chunks.keys()]):
+            # ! We can only apply this when all keys are indeed dimension, otherwise it falls back to the old method
+            target_chunks = parse_target_chunks_from_dim_chunks(source, target_chunks)
 
         copy_specs = []
         for name, variable in variables.items():
