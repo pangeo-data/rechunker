@@ -1,3 +1,5 @@
+from typing import List
+
 from prefect import Flow, task, unmapped
 
 from rechunker.types import ParallelPipelines, PipelineExecutor

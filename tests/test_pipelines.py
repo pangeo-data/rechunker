@@ -7,12 +7,12 @@ import pytest
 # TODO: remove the hard dependency on prefect here
 pytest.importorskip("prefect")
 
+from dataclasses import dataclass
+
 from rechunker.executors.dask import DaskPipelineExecutor
 from rechunker.executors.prefect import PrefectPipelineExecutor
 from rechunker.executors.python import PythonPipelineExecutor
-from rechunker.types import Stage, Pipeline
-
-from dataclasses import dataclass
+from rechunker.types import Pipeline, Stage
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def example_pipeline(tmpdir_factory):
         fname1: str
         fname_pattern: str
 
-    config = Config("func0.log",  "func1_a.log", "func1_{arg}.log")
+    config = Config("func0.log", "func1_a.log", "func1_{arg}.log")
 
     def func0(config=Config):
         tmp.join(config.fname0).ensure(file=True)

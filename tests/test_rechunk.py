@@ -522,7 +522,8 @@ def test_no_intermediate_fused(tmp_path):
 
     rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store)
 
-    num_tasks = len([v for v in rechunked.plan.dask.values() if dask.core.istask(v)])
+    # rechunked.plan is a list of dask delayed objects
+    num_tasks = len([v for v in rechunked.plan[0].dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
 
 

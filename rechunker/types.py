@@ -1,4 +1,5 @@
 """Types definitions used by executors."""
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -8,11 +9,10 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Union
+    Union,
 )
 
 from mypy_extensions import NamedArg
-from dataclasses import dataclass
 
 # TODO: replace with Protocols, once Python 3.8+ is required
 Array = Any
@@ -61,8 +61,12 @@ class CopySpec(NamedTuple):
 
 
 Config = Any  # TODO: better typing for config
-SingleArgumentStageFunction = Callable[[Any, NamedArg(type=Any, name="config")], None]  # noqa: F821
-NoArgumentStageFunction = Callable[[NamedArg(type=Any, name="config")], None]  # noqa: F821
+SingleArgumentStageFunction = Callable[
+    [Any, NamedArg(type=Any, name="config")], None
+]  # noqa: F821
+NoArgumentStageFunction = Callable[
+    [NamedArg(type=Any, name="config")], None
+]  # noqa: F821
 StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
 
 
@@ -80,7 +84,7 @@ class Pipeline:
 
 
 # ParallelPipelines contains one or more MultiStagePipelines, to be executed in parallel
-ParallelPipelines = Tuple[Pipeline]
+ParallelPipelines = Tuple[Pipeline, ...]
 
 T = TypeVar("T")
 

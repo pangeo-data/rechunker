@@ -5,15 +5,7 @@ from typing import Any, Iterable, Iterator, Tuple, TypeVar
 import dask
 import numpy as np
 
-from .types import (
-    CopySpec,
-    CopySpecExecutor,
-    ParallelPipelines,
-    Pipeline,
-    ReadableArray,
-    Stage,
-    WriteableArray,
-)
+from .types import CopySpec, CopySpecExecutor, ParallelPipelines, Pipeline, Stage
 
 
 def chunk_keys(
@@ -52,7 +44,8 @@ def copy_intermediate_to_write(chunk_key, *, config=CopySpec):
 
 
 def spec_to_pipeline(spec: CopySpec) -> Pipeline:
-    shape = spec.read.array.shape
+    # typing won't work until we start using numpy types
+    shape = spec.read.array.shape  # type: ignore
     if spec.intermediate.array is None:
         stages = [
             Stage(
@@ -78,7 +71,7 @@ def spec_to_pipeline(spec: CopySpec) -> Pipeline:
 
 
 def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
-    return [spec_to_pipeline(spec) for spec in specs]
+    return tuple((spec_to_pipeline(spec) for spec in specs))
 
 
 T = TypeVar("T")

@@ -1,13 +1,10 @@
-from functools import partial
-from typing import Callable, Iterable
+from typing import Callable
 
 from rechunker.types import ParallelPipelines, PipelineExecutor
 
 # PythonExecutor represents delayed execution tasks as functions that require
 # no arguments.
 Task = Callable[[], None]
-
-
 
 
 class PythonPipelineExecutor(PipelineExecutor[Task]):
@@ -25,6 +22,7 @@ class PythonPipelineExecutor(PipelineExecutor[Task]):
                             stage.function(m, config=pipeline.config)
                     else:
                         stage.function(config=pipeline.config)
+
         return plan
 
     def execute_plan(self, plan: Task, **kwargs):

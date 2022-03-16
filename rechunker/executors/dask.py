@@ -7,12 +7,7 @@ from dask.blockwise import BlockwiseDepDict, blockwise
 from dask.delayed import Delayed
 from dask.highlevelgraph import HighLevelGraph
 
-from rechunker.types import (
-    Pipeline,
-    ParallelPipelines,
-    PipelineExecutor,
-    Stage
-)
+from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
 
 
 def wrap_map_task(function):
