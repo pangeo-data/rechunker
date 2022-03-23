@@ -213,10 +213,6 @@ def test_rechunk_dataset(
     with dask.config.set(scheduler="single-threaded"):
         rechunked.execute()
 
-    # check zarr store directly
-    # zstore = zarr.open_group(target_store)
-    # print(zstore.tree())
-
     # Validate encoded variables
     dst = xarray.open_zarr(target_store, decode_cf=False)
     assert dst.a.dtype == options["a"]["dtype"]
@@ -354,14 +350,10 @@ def test_rechunk_array(
     assert target_array.chunks == tuple(target_chunks_list)
     assert dict(source_array.attrs) == dict(target_array.attrs)
 
-    # print(rechunked.plan[0].dask)
     result = rechunked.execute()
     assert isinstance(result, zarr.Array)
     a_tar = np.asarray(result)
-    print(a_tar.shape, a_tar.dtype)
     np.testing.assert_equal(a_tar, 1)
-    # a_tar = dsa.from_zarr(target_array)
-    # assert dsa.equal(a_tar, 1).all().compute()
 
 
 @pytest.mark.parametrize("shape", [(8000, 8000)])
