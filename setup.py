@@ -7,7 +7,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 
-install_requires = ["dask[array]", "zarr", "xarray"]
+install_requires = ["dask[array]", "zarr", "xarray", "mypy_extensions"]
 doc_requires = [
     "sphinx",
     "sphinxcontrib-srclinks",
@@ -19,8 +19,7 @@ doc_requires = [
 test_requires = ["pytest", "hypothesis"]
 
 extras_require = {
-    "complete": install_requires
-    + ["apache_beam", "pyyaml", "fsspec", "prefect", "pywren_ibm_cloud"],
+    "complete": install_requires + ["apache_beam", "pyyaml", "fsspec", "prefect"],
     "docs": doc_requires,
     "test": test_requires,
 }
