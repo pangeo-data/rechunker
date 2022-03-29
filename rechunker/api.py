@@ -1,4 +1,7 @@
 """User-facing functions."""
+from __future__ import annotations
+
+import contextlib
 import html
 import textwrap
 from collections import defaultdict
@@ -6,8 +9,11 @@ from typing import Union
 
 import dask
 import dask.array
+import fsspec
 import xarray
 import zarr
+from fsspec import AbstractFileSystem
+from fsspec.implementations.local import LocalFileSystem
 from xarray.backends.zarr import (
     DIMENSION_KEY,
     encode_zarr_attr_value,
@@ -579,3 +585,45 @@ def _setup_array_rechunk(
     int_proxy = ArrayProxy(int_array, int_chunks)
     write_proxy = ArrayProxy(target_array, write_chunks)
     return CopySpec(read_proxy, int_proxy, write_proxy)
+
+
+@contextlib.contextmanager
+def rechunk_cm(
+    source,
+    target_chunks,
+    max_mem,
+    target_store: str,
+    target_options=None,
+    temp_store: str | None = None,
+    temp_options=None,
+    executor: str | CopySpecExecutor = "dask",
+    filesystem: str | AbstractFileSystem = LocalFileSystem(),
+    keep_target_store: bool = True,
+) -> Rechunked:
+    try:
+        if isinstance(filesystem, str):
+            filesystem = fsspec.filesystem(filesystem)
+        if filesystem.exists(target_store):
+            raise FileExistsError(target_store)
+        _rm_store(temp_store, filesystem)
+        yield rechunk(
+            source=source,
+            target_chunks=target_chunks,
+            max_mem=max_mem,
+            target_store=target_store,
+            target_options=target_options,
+            temp_store=temp_store,
+            temp_options=temp_options,
+            executor=executor,
+        )
+    finally:
+        _rm_store(temp_store, filesystem)
+        if not keep_target_store:
+            _rm_store(target_store, filesystem)
+
+
+def _rm_store(store: str, filesystem: AbstractFileSystem):
+    try:
+        filesystem.rm(store, recursive=True, maxdepth=100)
+    except FileNotFoundError:
+        pass
