@@ -101,7 +101,7 @@ def _verify_plan_correctness(
     for n, sc, rc, ic, wc, tc in zip(
         shape, source_chunks, read_chunks, int_chunks, write_chunks, target_chunks
     ):
-        print(n, sc, rc, ic, wc, tc)
+        # print(n, sc, rc, ic, wc, tc)
         assert rc >= sc  # read chunks bigger or equal to source chunks
         assert wc >= tc  # write chunks bigger or equal to target chunks
         # write chunks are either as big as the whole dimension or else
