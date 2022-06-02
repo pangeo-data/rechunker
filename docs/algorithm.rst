@@ -12,7 +12,7 @@ The algorithm used by rechunker tries to satisfy several constraints simultaneou
   means avoiding write locks, which are complex to manage, and inter-worker
   communication.
 
-The algorithm we chose emerged via a lively disucssion on the
+The algorithm we chose emerged via a lively discussion on the
 `Pangeo Discourse Forum <https://discourse.pangeo.io/t/best-practices-to-go-from-1000s-of-netcdf-files-to-analyses-on-a-hpc-cluster/588>`_.
 We call it *Push / Pull Consolidated*.
 

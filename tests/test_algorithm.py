@@ -33,8 +33,8 @@ def test_consolidate_chunks(shape, chunks, itemsize, max_mem, expected):
     [
         (16, (None, -1), (1, 4)),  # do last axis
         (16, (-1, None), (2, 2)),  # do first axis
-        (32, (None, -1), (1, 8)),  # without limts
-        (32, (None, 4), (1, 4)),  # with limts
+        (32, (None, -1), (1, 8)),  # without limits
+        (32, (None, 4), (1, 4)),  # with limits
         (32, (8, 4), (2, 4)),  # spill to next axis
         (32, (8, None), (4, 2)),
         (128, (10, None), (8, 2)),  # chunk_limit > shape truncated
