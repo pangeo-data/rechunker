@@ -28,7 +28,7 @@ We call it *Push / Pull Consolidated*.
 A rough sketch of the algorithm is as follows
 
 1. User inputs a source array with a specific shape, chunk structure and
-   data type. Also specifies ```target_chunks``, the desired chunk structure
+   data type. Also specifies ``target_chunks``, the desired chunk structure
    of the output array and ``max_mem``, the maximum amount of memory
    each worker is allowed to use.
 2. Determine the largest batch of data we can *write* by one worker given
