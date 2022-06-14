@@ -86,6 +86,7 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
 
 
 def _verify_plan_correctness(
+    shape,
     source_chunks,
     read_chunks,
     int_chunks,
@@ -97,13 +98,16 @@ def _verify_plan_correctness(
     assert itemsize * prod(read_chunks) <= max_mem
     assert itemsize * prod(int_chunks) <= max_mem
     assert itemsize * prod(write_chunks) <= max_mem
-    for sc, rc, ic, wc, tc in zip(
-        source_chunks, read_chunks, int_chunks, write_chunks, target_chunks
+    for n, sc, rc, ic, wc, tc in zip(
+        shape, source_chunks, read_chunks, int_chunks, write_chunks, target_chunks
     ):
-        assert rc >= sc
-        assert wc >= tc
-        assert ic == min(rc, wc)
-        # todo: check for write overlaps
+        # print(n, sc, rc, ic, wc, tc)
+        assert rc >= sc  # read chunks bigger or equal to source chunks
+        assert wc >= tc  # write chunks bigger or equal to target chunks
+        # write chunks are either as big as the whole dimension or else
+        # evenly slice the target chunks (avoid conflicts)
+        assert (wc == n) or (wc % tc == 0)
+        assert ic == min(rc, wc)  # intermediate chunks smaller than rear or write
 
 
 @pytest.mark.parametrize(
@@ -117,7 +121,7 @@ def _verify_plan_correctness(
         ((8,), 4, (1,), (2,), 8, (2,), (2,), (2,)),
         ((8,), 4, (1,), (2,), 16, (4,), (4,), (4,)),  # consolidate
         ((8,), 4, (1,), (2,), 17, (4,), (4,), (4,)),  # no difference
-        ((16,), 4, (3,), (7,), 32, (6,), (6,), (7,)),  # uneven chunks
+        ((16,), 4, (3,), (7,), 32, (7,), (7,), (7,)),  # uneven chunks
     ],
 )
 def test_rechunking_plan_1D(
@@ -137,6 +141,7 @@ def test_rechunking_plan_1D(
     assert int_chunks == intermediate_chunks_expected
     assert write_chunks == write_chunks_expected
     _verify_plan_correctness(
+        shape,
         source_chunks,
         read_chunks,
         int_chunks,
@@ -176,6 +181,7 @@ def test_rechunking_plan_2d(
     assert int_chunks == intermediate_chunks_expected
     assert write_chunks == write_chunks_expected
     _verify_plan_correctness(
+        shape,
         source_chunks,
         read_chunks,
         int_chunks,
@@ -239,6 +245,7 @@ def test_rechunking_plan_hypothesis(inputs):
     assert len(write_chunks) == ndim
 
     _verify_plan_correctness(
+        shape,
         source_chunks,
         read_chunks,
         int_chunks,
@@ -247,3 +254,22 @@ def test_rechunking_plan_hypothesis(inputs):
         itemsize,
         max_mem,
     )
+
+
+# check for https://github.com/pangeo-data/rechunker/issues/115
+def test_intermediate_to_target_memory():
+    shape = (175320, 721, 1440)
+    source_chunks = (24, 721, 1440)
+    target_chunks = (21915, 103, 10)
+    itemsize = 4
+    max_mem = 12000000000  # 12 GB
+
+    read_chunks, int_chunks, write_chunks = rechunking_plan(
+        shape, source_chunks, target_chunks, itemsize, max_mem, consolidate_reads=True,
+    )
+
+    read_chunks2, int_chunks2, write_chunks2 = rechunking_plan(
+        shape, int_chunks, target_chunks, itemsize, max_mem, consolidate_reads=True,
+    )
+
+    assert read_chunks2 == int_chunks2 == write_chunks2
