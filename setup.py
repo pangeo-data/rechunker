@@ -7,7 +7,12 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 
-install_requires = ["dask[array,diagnostics]", "zarr", "xarray", "mypy_extensions"]
+install_requires = [
+    "dask[array,diagnostics]",
+    "zarr>=2.11",
+    "xarray>=2022.3",
+    "mypy_extensions",
+]
 doc_requires = [
     "sphinx",
     "sphinxcontrib-srclinks",
@@ -26,7 +31,13 @@ extras_require = {
 extras_require["dev"] = (
     extras_require["complete"]
     + extras_require["test"]
-    + ["pytest-cov", "flake8", "black", "codecov", "mypy==0.782",]
+    + [
+        "pytest-cov",
+        "flake8",
+        "black",
+        "codecov",
+        "mypy==0.782",
+    ]
 )
 
 setup(
