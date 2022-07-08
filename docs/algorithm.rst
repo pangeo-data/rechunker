@@ -12,7 +12,7 @@ The algorithm used by rechunker tries to satisfy several constraints simultaneou
   means avoiding write locks, which are complex to manage, and inter-worker
   communication.
 
-The algorithm we chose emerged via a lively disucssion on the
+The algorithm we chose emerged via a lively discussion on the
 `Pangeo Discourse Forum <https://discourse.pangeo.io/t/best-practices-to-go-from-1000s-of-netcdf-files-to-analyses-on-a-hpc-cluster/588>`_.
 We call it *Push / Pull Consolidated*.
 
@@ -28,7 +28,7 @@ We call it *Push / Pull Consolidated*.
 A rough sketch of the algorithm is as follows
 
 1. User inputs a source array with a specific shape, chunk structure and
-   data type. Also specifies ```target_chunks``, the desired chunk structure
+   data type. Also specifies ``target_chunks``, the desired chunk structure
    of the output array and ``max_mem``, the maximum amount of memory
    each worker is allowed to use.
 2. Determine the largest batch of data we can *write* by one worker given

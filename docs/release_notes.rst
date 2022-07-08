@@ -10,7 +10,7 @@ v0.5.0 - 2023-04-14
 
 - Fix major bug with dask executor.
   By `Ryan Abernathey <https://github.com/rabernat>`_.
-- Enable xarray `.chunk()` style input for target chunks.
+- Enable xarray ``.chunk()`` style input for target chunks.
   By `Julius Busecke <https://github.com/jbusecke>`_.
 
 v0.4.2 - 2021-04-27
@@ -43,7 +43,7 @@ v0.3.2 - 2020-12-02
 -------------------
 
 - Fixed bug in rechunking of xarray datasets. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
-- Internal improvments to tests and packagaging. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
+- Internal improvements to tests and packagaging. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
 - Updates to tutorial. By `Andrew Brettin <https://github.com/andrewbrettin>`_.
 
 v0.3.1 - 2020-10-13
