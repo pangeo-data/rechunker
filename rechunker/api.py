@@ -166,7 +166,7 @@ ZARR_OPTIONS = [
     "cache_metadata",
     "cache_attrs",
     "overwrite",
-    "write_empty_chunks"
+    "write_empty_chunks",
 ]
 
 
