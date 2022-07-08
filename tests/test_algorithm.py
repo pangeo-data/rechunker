@@ -64,13 +64,22 @@ def test_consolidate_chunks_limit_error(shape, chunks, itemsize, max_mem, chunk_
 
 
 @pytest.mark.parametrize(
-    "shape", [(1000, 50, 1800, 3600),],
+    "shape",
+    [
+        (1000, 50, 1800, 3600),
+    ],
 )
 @pytest.mark.parametrize(
-    "chunks", [(1, 5, 1800, 3600),],
+    "chunks",
+    [
+        (1, 5, 1800, 3600),
+    ],
 )
 @pytest.mark.parametrize(
-    "itemsize", [4,],
+    "itemsize",
+    [
+        4,
+    ],
 )
 @pytest.mark.parametrize(
     "max_mem, expected",
@@ -265,11 +274,21 @@ def test_intermediate_to_target_memory():
     max_mem = 12000000000  # 12 GB
 
     read_chunks, int_chunks, write_chunks = rechunking_plan(
-        shape, source_chunks, target_chunks, itemsize, max_mem, consolidate_reads=True,
+        shape,
+        source_chunks,
+        target_chunks,
+        itemsize,
+        max_mem,
+        consolidate_reads=True,
     )
 
     read_chunks2, int_chunks2, write_chunks2 = rechunking_plan(
-        shape, int_chunks, target_chunks, itemsize, max_mem, consolidate_reads=True,
+        shape,
+        int_chunks,
+        target_chunks,
+        itemsize,
+        max_mem,
+        consolidate_reads=True,
     )
 
     assert read_chunks2 == int_chunks2 == write_chunks2

@@ -53,7 +53,11 @@ def chunk_ds():
                 numpy.random.randint(0, 101, (len(lon), len(lat), len(time))),
             )
         ),
-        coords=dict(lon=lon, lat=lat, time=time,),
+        coords=dict(
+            lon=lon,
+            lat=lat,
+            time=time,
+        ),
     )
     return ds
 
@@ -144,9 +148,27 @@ def test_parse_target_chunks_from_dim_chunks(
 @pytest.mark.parametrize(
     "dask_chunks, dim, target_chunks, expected",
     [
-        pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks numpy array",),
-        pytest.param(None, "lon", dict(lon=10), 10, id="small lon chunks dask array",),
-        pytest.param(None, "time", dict(time=400), 365, id="time chunks exceed len",),
+        pytest.param(
+            None,
+            "lon",
+            dict(lon=10),
+            10,
+            id="small lon chunks numpy array",
+        ),
+        pytest.param(
+            None,
+            "lon",
+            dict(lon=10),
+            10,
+            id="small lon chunks dask array",
+        ),
+        pytest.param(
+            None,
+            "time",
+            dict(time=400),
+            365,
+            id="time chunks exceed len",
+        ),
         pytest.param(
             {"time": 1},
             "time",
@@ -245,7 +267,11 @@ def test_rechunk_dataset(
 )
 @pytest.mark.parametrize("max_mem", ["10MB"])
 def test_rechunk_dataset_dimchunks(
-    tmp_path, shape, source_chunks, target_chunks, max_mem,
+    tmp_path,
+    shape,
+    source_chunks,
+    target_chunks,
+    max_mem,
 ):
     temp_store = "temp.zarr"
     target_store = "target.zarr"
@@ -297,7 +323,13 @@ def test_rechunk_dataset_dimchunks(
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000, "25.6MB"])
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect"),],
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+    ],
 )
 @pytest.mark.parametrize(
     "dims,target_chunks",
@@ -361,7 +393,13 @@ def test_rechunk_array(
 @pytest.mark.parametrize("dtype", ["f4"])
 @pytest.mark.parametrize("max_mem", [25600000])
 @pytest.mark.parametrize(
-    "target_chunks", [(200, 8000), (800, 8000), (8000, 200), (400, 8000),],
+    "target_chunks",
+    [
+        (200, 8000),
+        (800, 8000),
+        (8000, 200),
+        (400, 8000),
+    ],
 )
 def test_rechunk_dask_array(
     tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
@@ -390,7 +428,13 @@ def test_rechunk_dask_array(
 
 
 @pytest.mark.parametrize(
-    "executor", ["dask", "python", requires_beam("beam"), requires_prefect("prefect"),],
+    "executor",
+    [
+        "dask",
+        "python",
+        requires_beam("beam"),
+        requires_prefect("prefect"),
+    ],
 )
 @pytest.mark.parametrize("source_store", ["source.zarr", "mapper.source.zarr"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
@@ -509,7 +553,11 @@ def rechunk_args(tmp_path, request):
         target_chunks = (8000, 200)
 
         args.update(
-            {"source": array, "target_chunks": target_chunks, "max_mem": max_mem,}
+            {
+                "source": array,
+                "target_chunks": target_chunks,
+                "max_mem": max_mem,
+            }
         )
     return args
 
