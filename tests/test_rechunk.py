@@ -783,3 +783,23 @@ class Test_rechunk_context_manager:
                 keep_target_store=False,
             ):
                 pass
+
+    def test_rechunk__memory_filesystem(self):
+        with api.rechunk(
+                source=TEST_DATASET,
+                target_chunks={"x": 2, "y": 2},
+                max_mem="42KB",
+                target_store="memory://target_store.zarr",
+                temp_store="memory://tmp_store.zarr",
+                target_options={"mode": "rw"},
+                temp_options={"mode": "rw"},
+                executor="dask",
+                target_filesystem=MEM_FS,
+                temp_filesystem=MEM_FS,
+                keep_target_store=True,
+        ) as plan:
+            plan.execute()
+            assert MEM_FS.exists("target_store.zarr")
+            assert MEM_FS.exists("tmp_store.zarr")
+        assert MEM_FS.exists("target_store.zarr")
+        assert not MEM_FS.exists("tmp_store.zarr")
