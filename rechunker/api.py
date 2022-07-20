@@ -1,13 +1,19 @@
 """User-facing functions."""
+from __future__ import annotations
+
+import contextlib
 import html
 import textwrap
 from collections import defaultdict
-from typing import Union
+from typing import Iterator, Optional, Union
 
 import dask
 import dask.array
+import fsspec
 import xarray
 import zarr
+from fsspec import AbstractFileSystem
+from fsspec.implementations.local import LocalFileSystem
 from xarray.backends.zarr import (
     DIMENSION_KEY,
     encode_zarr_attr_value,
@@ -33,15 +39,17 @@ class Rechunked:
     >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
     >>> intermediate = "intermediate.zarr"
     >>> target = "target.zarr"
-    >>> rechunked = rechunk(source, target_chunks=(4, 1), target_store=target,
-    ...                     max_mem=256000,
-    ...                     temp_store=intermediate)
-    >>> rechunked
+    >>> with api.rechunk(source,
+    ...                   target_chunks=(4, 1),
+    ...                   target_store=target,
+    ...                   max_mem=256000,
+    ...                   temp_store=intermediate) as rechunked:
+    >>>   rechunked
     <Rechunked>
     * Source      : <zarr.core.Array (4, 4) float64>
     * Intermediate: dask.array<from-zarr, ... >
     * Target      : <zarr.core.Array (4, 4) float64>
-    >>> rechunked.execute()
+    >>>    rechunked.execute()
     <zarr.core.Array (4, 4) float64>
     """
 
@@ -219,7 +227,7 @@ def _get_executor(name: str) -> CopySpecExecutor:
         raise ValueError(f"unrecognized executor {name}")
 
 
-def rechunk(
+def _unsafe_rechunk(
     source,
     target_chunks,
     max_mem,
@@ -580,3 +588,52 @@ def _setup_array_rechunk(
     int_proxy = ArrayProxy(int_array, int_chunks)
     write_proxy = ArrayProxy(target_array, write_chunks)
     return CopySpec(read_proxy, int_proxy, write_proxy)
+
+
+@contextlib.contextmanager
+def rechunk(
+    source,
+    target_chunks,
+    max_mem,
+    target_store: str,
+    target_options: Optional[dict] = None,
+    temp_store: Optional[str] = None,
+    temp_options: Optional[dict] = None,
+    executor: Union[str, CopySpecExecutor] = "dask",
+    target_filesystem: Union[str, AbstractFileSystem] = LocalFileSystem(),
+    temp_filesystem: Union[str, AbstractFileSystem] = LocalFileSystem(),
+    keep_target_store: bool = True,
+) -> Iterator[Rechunked]:
+    try:
+        target_options = target_options or {}
+        temp_options = temp_options or {}
+        if isinstance(target_filesystem, str):
+            target_filesystem = fsspec.filesystem(target_filesystem, **target_options)
+        if isinstance(temp_filesystem, str):
+            temp_filesystem = fsspec.filesystem(temp_filesystem, **temp_options)
+        if target_filesystem.exists(target_store):
+            raise FileExistsError(target_store)
+        if temp_store is not None:
+            _rm_store(temp_store, temp_filesystem)
+        yield _unsafe_rechunk(
+            source=source,
+            target_chunks=target_chunks,
+            max_mem=max_mem,
+            target_store=target_store,
+            target_options=target_options,
+            temp_store=temp_store,
+            temp_options=temp_options,
+            executor=executor,
+        )
+    finally:
+        if temp_store is not None:
+            _rm_store(temp_store, temp_filesystem)
+        if not keep_target_store:
+            _rm_store(target_store, target_filesystem)
+
+
+def _rm_store(store: str, filesystem: AbstractFileSystem):
+    try:
+        filesystem.rm(store, recursive=True, maxdepth=100)
+    except FileNotFoundError:
+        pass
