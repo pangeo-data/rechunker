@@ -1,23 +1,20 @@
 import importlib
 from functools import partial
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import dask
 import dask.array as dsa
 import dask.core
 import numpy
-import zarr
-
-import dask
-import dask.core
 import numpy as np
 import pytest
 import xarray
+import zarr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
 from rechunker import api
-from unittest.mock import MagicMock, patch
-
 
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 TEST_DATASET = xarray.DataArray(
@@ -30,6 +27,7 @@ LOCAL_FS = LocalFileSystem()
 MEM_FS = MemoryFileSystem()
 TARGET_STORE_NAME = "target_store.zarr"
 TMP_STORE_NAME = "tmp.zarr"
+
 
 def requires_import(module, *args):
     try:
@@ -683,6 +681,7 @@ def test_no_intermediate_fused(tmp_path):
     num_tasks = len([v for v in rechunked.plan[0].dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
 
+
 class Test_rechunk_context_manager:
     def _clean(self, stores):
         for s in stores:
@@ -764,7 +763,6 @@ class Test_rechunk_context_manager:
         assert LOCAL_FS.exists("target_store.zarr")
         assert not LOCAL_FS.exists("tmp_store.zarr")
 
-
     def test_rechunk__error_target_exist(self):
         f = LOCAL_FS.open("target_store.zarr", "x")
         f.close()
@@ -786,17 +784,17 @@ class Test_rechunk_context_manager:
 
     def test_rechunk__memory_filesystem(self):
         with api.rechunk(
-                source=TEST_DATASET,
-                target_chunks={"x": 2, "y": 2},
-                max_mem="42KB",
-                target_store="memory://target_store.zarr",
-                temp_store="memory://tmp_store.zarr",
-                target_options={"mode": "rw"},
-                temp_options={"mode": "rw"},
-                executor="dask",
-                target_filesystem=MEM_FS,
-                temp_filesystem=MEM_FS,
-                keep_target_store=True,
+            source=TEST_DATASET,
+            target_chunks={"x": 2, "y": 2},
+            max_mem="42KB",
+            target_store="memory://target_store.zarr",
+            temp_store="memory://tmp_store.zarr",
+            target_options={"mode": "rw"},
+            temp_options={"mode": "rw"},
+            executor="dask",
+            target_filesystem=MEM_FS,
+            temp_filesystem=MEM_FS,
+            keep_target_store=True,
         ) as plan:
             plan.execute()
             assert MEM_FS.exists("target_store.zarr")

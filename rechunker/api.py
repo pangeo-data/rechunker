@@ -227,14 +227,14 @@ def _get_executor(name: str) -> CopySpecExecutor:
 
 
 def _unsafe_rechunk(
-        source,
-        target_chunks,
-        max_mem,
-        target_store,
-        target_options=None,
-        temp_store=None,
-        temp_options=None,
-        executor: Union[str, CopySpecExecutor] = "dask",
+    source,
+    target_chunks,
+    max_mem,
+    target_store,
+    target_options=None,
+    temp_store=None,
+    temp_options=None,
+    executor: Union[str, CopySpecExecutor] = "dask",
 ) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
@@ -591,17 +591,17 @@ def _setup_array_rechunk(
 
 @contextlib.contextmanager
 def rechunk(
-        source,
-        target_chunks,
-        max_mem,
-        target_store: str,
-        target_options=None,
-        temp_store: str | None = None,
-        temp_options=None,
-        executor: str | CopySpecExecutor = "dask",
-        target_filesystem: str | AbstractFileSystem = LocalFileSystem(),
-        temp_filesystem: str | AbstractFileSystem = LocalFileSystem(),
-        keep_target_store: bool = True,
+    source,
+    target_chunks,
+    max_mem,
+    target_store: str,
+    target_options=None,
+    temp_store: str | None = None,
+    temp_options=None,
+    executor: str | CopySpecExecutor = "dask",
+    target_filesystem: str | AbstractFileSystem = LocalFileSystem(),
+    temp_filesystem: str | AbstractFileSystem = LocalFileSystem(),
+    keep_target_store: bool = True,
 ) -> Rechunked:
     try:
         target_options = target_options or {}
