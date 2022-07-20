@@ -5,7 +5,7 @@ import contextlib
 import html
 import textwrap
 from collections import defaultdict
-from typing import Union
+from typing import Iterator, Optional, Union
 
 import dask
 import dask.array
@@ -595,14 +595,14 @@ def rechunk(
     target_chunks,
     max_mem,
     target_store: str,
-    target_options=None,
-    temp_store: str | None = None,
-    temp_options=None,
-    executor: str | CopySpecExecutor = "dask",
-    target_filesystem: str | AbstractFileSystem = LocalFileSystem(),
-    temp_filesystem: str | AbstractFileSystem = LocalFileSystem(),
+    target_options: Optional[dict] = None,
+    temp_store: Optional[str] = None,
+    temp_options: Optional[dict] = None,
+    executor: Union[str, CopySpecExecutor] = "dask",
+    target_filesystem: Union[str, AbstractFileSystem] = LocalFileSystem(),
+    temp_filesystem: Union[str, AbstractFileSystem] = LocalFileSystem(),
     keep_target_store: bool = True,
-) -> Rechunked:
+) -> Iterator[Rechunked]:
     try:
         target_options = target_options or {}
         temp_options = temp_options or {}
@@ -612,7 +612,8 @@ def rechunk(
             temp_filesystem = fsspec.filesystem(temp_filesystem, **temp_options)
         if target_filesystem.exists(target_store):
             raise FileExistsError(target_store)
-        _rm_store(temp_store, temp_filesystem)
+        if temp_store is not None:
+            _rm_store(temp_store, temp_filesystem)
         yield _unsafe_rechunk(
             source=source,
             target_chunks=target_chunks,
@@ -624,7 +625,8 @@ def rechunk(
             executor=executor,
         )
     finally:
-        _rm_store(temp_store, temp_filesystem)
+        if temp_store is not None:
+            _rm_store(temp_store, temp_filesystem)
         if not keep_target_store:
             _rm_store(target_store, target_filesystem)
 
