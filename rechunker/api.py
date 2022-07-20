@@ -39,15 +39,17 @@ class Rechunked:
     >>> source = zarr.ones((4, 4), chunks=(2, 2), store="source.zarr")
     >>> intermediate = "intermediate.zarr"
     >>> target = "target.zarr"
-    >>> rechunked = rechunk(source, target_chunks=(4, 1), target_store=target,
-    ...                     max_mem=256000,
-    ...                     temp_store=intermediate)
-    >>> rechunked
+    >>> with api.rechunk(source,
+    ...                   target_chunks=(4, 1),
+    ...                   target_store=target,
+    ...                   max_mem=256000,
+    ...                   temp_store=intermediate) as rechunked:
+    >>>   rechunked
     <Rechunked>
     * Source      : <zarr.core.Array (4, 4) float64>
     * Intermediate: dask.array<from-zarr, ... >
     * Target      : <zarr.core.Array (4, 4) float64>
-    >>> rechunked.execute()
+    >>>    rechunked.execute()
     <zarr.core.Array (4, 4) float64>
     """
 
@@ -224,15 +226,15 @@ def _get_executor(name: str) -> CopySpecExecutor:
         raise ValueError(f"unrecognized executor {name}")
 
 
-def rechunk(
-    source,
-    target_chunks,
-    max_mem,
-    target_store,
-    target_options=None,
-    temp_store=None,
-    temp_options=None,
-    executor: Union[str, CopySpecExecutor] = "dask",
+def _unsafe_rechunk(
+        source,
+        target_chunks,
+        max_mem,
+        target_store,
+        target_options=None,
+        temp_store=None,
+        temp_options=None,
+        executor: Union[str, CopySpecExecutor] = "dask",
 ) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
@@ -588,25 +590,30 @@ def _setup_array_rechunk(
 
 
 @contextlib.contextmanager
-def rechunk_cm(
-    source,
-    target_chunks,
-    max_mem,
-    target_store: str,
-    target_options=None,
-    temp_store: str | None = None,
-    temp_options=None,
-    executor: str | CopySpecExecutor = "dask",
-    filesystem: str | AbstractFileSystem = LocalFileSystem(),
-    keep_target_store: bool = True,
+def rechunk(
+        source,
+        target_chunks,
+        max_mem,
+        target_store: str,
+        target_options=None,
+        temp_store: str | None = None,
+        temp_options=None,
+        executor: str | CopySpecExecutor = "dask",
+        target_filesystem: str | AbstractFileSystem = LocalFileSystem(),
+        temp_filesystem: str | AbstractFileSystem = LocalFileSystem(),
+        keep_target_store: bool = True,
 ) -> Rechunked:
     try:
-        if isinstance(filesystem, str):
-            filesystem = fsspec.filesystem(filesystem)
-        if filesystem.exists(target_store):
+        target_options = target_options or {}
+        temp_options = temp_options or {}
+        if isinstance(target_filesystem, str):
+            target_filesystem = fsspec.filesystem(target_filesystem, **target_options)
+        if isinstance(temp_filesystem, str):
+            temp_filesystem = fsspec.filesystem(temp_filesystem, **temp_options)
+        if target_filesystem.exists(target_store):
             raise FileExistsError(target_store)
-        _rm_store(temp_store, filesystem)
-        yield rechunk(
+        _rm_store(temp_store, temp_filesystem)
+        yield _unsafe_rechunk(
             source=source,
             target_chunks=target_chunks,
             max_mem=max_mem,
@@ -617,9 +624,9 @@ def rechunk_cm(
             executor=executor,
         )
     finally:
-        _rm_store(temp_store, filesystem)
+        _rm_store(temp_store, temp_filesystem)
         if not keep_target_store:
-            _rm_store(target_store, filesystem)
+            _rm_store(target_store, target_filesystem)
 
 
 def _rm_store(store: str, filesystem: AbstractFileSystem):

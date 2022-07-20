@@ -2,19 +2,34 @@ import importlib
 from functools import partial
 from pathlib import Path
 
-import dask
 import dask.array as dsa
 import dask.core
 import numpy
+import zarr
+
+import dask
+import dask.core
 import numpy as np
 import pytest
 import xarray
-import zarr
+from fsspec.implementations.local import LocalFileSystem
+from fsspec.implementations.memory import MemoryFileSystem
 
 from rechunker import api
+from unittest.mock import MagicMock, patch
+
 
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
-
+TEST_DATASET = xarray.DataArray(
+    data=np.empty((10, 10)),
+    coords={"x": range(0, 10), "y": range(0, 10)},
+    dims=["x", "y"],
+    name="test_data",
+).to_dataset()
+LOCAL_FS = LocalFileSystem()
+MEM_FS = MemoryFileSystem()
+TARGET_STORE_NAME = "target_store.zarr"
+TMP_STORE_NAME = "tmp.zarr"
 
 def requires_import(module, *args):
     try:
@@ -200,7 +215,7 @@ def test_rechunk_dataset(
             _FillValue=-9999,
         )
     )
-    rechunked = api.rechunk(
+    rechunked = api._unsafe_rechunk(
         ds,
         target_chunks=target_chunks,
         max_mem=max_mem,
@@ -261,7 +276,7 @@ def test_rechunk_dataset_dimchunks(
             _FillValue=-9999,
         )
     )
-    rechunked = api.rechunk(
+    rechunked = api._unsafe_rechunk(
         ds,
         target_chunks=target_chunks,
         max_mem=max_mem,
@@ -331,7 +346,7 @@ def test_rechunk_array(
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    rechunked = api.rechunk(
+    rechunked = api._unsafe_rechunk(
         source_array,
         target_chunks,
         max_mem,
@@ -374,7 +389,7 @@ def test_rechunk_dask_array(
     target_store = str(tmp_path / "target.zarr")
     temp_store = str(tmp_path / "temp.zarr")
 
-    rechunked = api.rechunk(
+    rechunked = api._unsafe_rechunk(
         source_array, target_chunks, max_mem, target_store, temp_store=temp_store
     )
     assert isinstance(rechunked, api.Rechunked)
@@ -417,7 +432,7 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
     max_mem = 1600  # should force a two-step plan for a
     target_chunks = {"a": (5, 10, 4), "b": (20,)}
 
-    rechunked = api.rechunk(
+    rechunked = api._unsafe_rechunk(
         group,
         target_chunks,
         max_mem,
@@ -516,7 +531,7 @@ def rechunk_args(tmp_path, request):
 
 @pytest.fixture()
 def rechunked(rechunk_args):
-    return api.rechunk(**rechunk_args)
+    return api._unsafe_rechunk(**rechunk_args)
 
 
 def test_repr(rechunked):
@@ -546,13 +561,13 @@ def _wrap_options(source, options):
 
 
 def test_rechunk_option_overwrite(rechunk_args):
-    api.rechunk(**rechunk_args).execute()
+    api._unsafe_rechunk(**rechunk_args).execute()
     # TODO: make this match more reliable based on outcome of
     # https://github.com/zarr-developers/zarr-python/issues/605
     with pytest.raises(ValueError, match=r"path .* contains an array"):
-        api.rechunk(**rechunk_args).execute()
+        api._unsafe_rechunk(**rechunk_args).execute()
     options = _wrap_options(rechunk_args["source"], dict(overwrite=True))
-    api.rechunk(**rechunk_args, target_options=options).execute()
+    api._unsafe_rechunk(**rechunk_args, target_options=options).execute()
 
 
 def test_rechunk_passthrough(rechunk_args):
@@ -561,7 +576,7 @@ def test_rechunk_passthrough(rechunk_args):
         rechunk_args["target_chunks"] = {v: None for v in rechunk_args["source"]}
     else:
         rechunk_args["target_chunks"] = None
-    api.rechunk(**rechunk_args).execute()
+    api._unsafe_rechunk(**rechunk_args).execute()
 
 
 def test_rechunk_no_temp_dir_provided_error(rechunk_args):
@@ -569,7 +584,7 @@ def test_rechunk_no_temp_dir_provided_error(rechunk_args):
     # and the chunks to write differ from the chunks to read
     args = {k: v for k, v in rechunk_args.items() if k != "temp_store"}
     with pytest.raises(ValueError, match="A temporary store location must be provided"):
-        api.rechunk(**args).execute()
+        api._unsafe_rechunk(**args).execute()
 
 
 def test_rechunk_option_compression(rechunk_args):
@@ -577,7 +592,7 @@ def test_rechunk_option_compression(rechunk_args):
         options = _wrap_options(
             rechunk_args["source"], dict(overwrite=True, compressor=compressor)
         )
-        rechunked = api.rechunk(**rechunk_args, target_options=options)
+        rechunked = api._unsafe_rechunk(**rechunk_args, target_options=options)
         rechunked.execute()
         return sum(
             file.stat().st_size
@@ -600,14 +615,14 @@ def test_rechunk_invalid_option(rechunk_args):
             ValueError,
             match="Chunks must be provided in ``target_chunks`` rather than options",
         ):
-            api.rechunk(**rechunk_args, target_options=options)
+            api._unsafe_rechunk(**rechunk_args, target_options=options)
     else:
         for o in ["shape", "chunks", "dtype", "store", "name", "unknown"]:
             options = _wrap_options(rechunk_args["source"], {o: True})
             with pytest.raises(ValueError, match=f"Zarr options must not include {o}"):
-                api.rechunk(**rechunk_args, temp_options=options)
+                api._unsafe_rechunk(**rechunk_args, temp_options=options)
             with pytest.raises(ValueError, match=f"Zarr options must not include {o}"):
-                api.rechunk(**rechunk_args, target_options=options)
+                api._unsafe_rechunk(**rechunk_args, target_options=options)
 
 
 def test_rechunk_bad_target_chunks(rechunk_args):
@@ -618,7 +633,7 @@ def test_rechunk_bad_target_chunks(rechunk_args):
     with pytest.raises(
         ValueError, match="You must specify ``target-chunks`` as a dict"
     ):
-        api.rechunk(**rechunk_args)
+        api._unsafe_rechunk(**rechunk_args)
 
 
 def test_rechunk_invalid_source(tmp_path):
@@ -626,7 +641,7 @@ def test_rechunk_invalid_source(tmp_path):
         ValueError,
         match="Source must be a Zarr Array, Zarr Group, Dask Array or Xarray Dataset",
     ):
-        api.rechunk(
+        api._unsafe_rechunk(
             [[1, 2], [3, 4]], target_chunks=(10, 10), max_mem=100, target_store=tmp_path
         )
 
@@ -637,7 +652,7 @@ def test_rechunk_no_target_chunks(rechunk_args):
         rechunk_args["target_chunks"] = {v: None for v in rechunk_args["source"]}
     else:
         rechunk_args["target_chunks"] = None
-    api.rechunk(**rechunk_args)
+    api._unsafe_rechunk(**rechunk_args)
 
 
 def test_no_intermediate():
@@ -662,8 +677,109 @@ def test_no_intermediate_fused(tmp_path):
 
     target_store = str(tmp_path / "target.zarr")
 
-    rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store)
+    rechunked = api._unsafe_rechunk(source_array, target_chunks, max_mem, target_store)
 
     # rechunked.plan is a list of dask delayed objects
     num_tasks = len([v for v in rechunked.plan[0].dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
+
+class Test_rechunk_context_manager:
+    def _clean(self, stores):
+        for s in stores:
+            try:
+                LOCAL_FS.rm(s, recursive=True, maxdepth=100)
+            except:
+                pass
+
+    @pytest.fixture(autouse=True)
+    def _wrap(self):
+        self._clean([TMP_STORE_NAME, TARGET_STORE_NAME])
+        with dask.config.set(scheduler="single-threaded"):
+            yield
+        self._clean([TMP_STORE_NAME, TARGET_STORE_NAME])
+
+    @patch("rechunker.api._unsafe_rechunk")
+    def test_rechunk__args_sent_as_is(self, rechunk_func: MagicMock):
+        with api.rechunk(
+            source="source",
+            target_chunks={"truc": "bidule"},
+            max_mem="42KB",
+            target_store="target_store.zarr",
+            temp_store="tmp_store.zarr",
+            target_options=None,
+            temp_options=None,
+            executor="dask",
+            target_filesystem=LOCAL_FS,
+            temp_filesystem=LOCAL_FS,
+            keep_target_store=False,
+        ):
+            rechunk_func.assert_called_with(
+                source="source",
+                target_chunks={"truc": "bidule"},
+                max_mem="42KB",
+                target_store="target_store.zarr",
+                target_options={},
+                temp_store="tmp_store.zarr",
+                temp_options={},
+                executor="dask",
+            )
+
+    def test_rechunk__remove_every_stores(self):
+        with api.rechunk(
+            source=TEST_DATASET,
+            target_chunks={"x": 2, "y": 2},
+            max_mem="42KB",
+            target_store="target_store.zarr",
+            temp_store="tmp_store.zarr",
+            target_options=None,
+            temp_options=None,
+            executor="dask",
+            target_filesystem=LOCAL_FS,
+            temp_filesystem=LOCAL_FS,
+            keep_target_store=False,
+        ) as plan:
+            plan.execute()
+            assert LOCAL_FS.exists("target_store.zarr")
+            assert LOCAL_FS.exists("tmp_store.zarr")
+        assert not LOCAL_FS.exists("tmp_store.zarr")
+        assert not LOCAL_FS.exists("target_store.zarr")
+
+    def test_rechunk__keep_target(self):
+        with api.rechunk(
+            source=TEST_DATASET,
+            target_chunks={"x": 2, "y": 2},
+            max_mem="42KB",
+            target_store="target_store.zarr",
+            temp_store="tmp_store.zarr",
+            target_options=None,
+            temp_options=None,
+            executor="dask",
+            target_filesystem=LOCAL_FS,
+            temp_filesystem=LOCAL_FS,
+            keep_target_store=True,
+        ) as plan:
+            plan.execute()
+            assert LOCAL_FS.exists("target_store.zarr")
+            assert LOCAL_FS.exists("tmp_store.zarr")
+        assert LOCAL_FS.exists("target_store.zarr")
+        assert not LOCAL_FS.exists("tmp_store.zarr")
+
+
+    def test_rechunk__error_target_exist(self):
+        f = LOCAL_FS.open("target_store.zarr", "x")
+        f.close()
+        with pytest.raises(FileExistsError):
+            with api.rechunk(
+                source=TEST_DATASET,
+                target_chunks={"x": 2, "y": 2},
+                max_mem="42KB",
+                target_store="target_store.zarr",
+                temp_store="tmp_store.zarr",
+                target_options=None,
+                temp_options=None,
+                executor="dask",
+                target_filesystem=LOCAL_FS,
+                temp_filesystem=LOCAL_FS,
+                keep_target_store=False,
+            ):
+                pass
