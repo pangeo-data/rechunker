@@ -6,8 +6,10 @@ __pycache__
 build/
 dist/
 rechunker/_version.py
+.idea/
 
 # ignore temp data created during tests and nb execution
 *.zarr
 .ipynb_checkpoints
 dask-worker-space
+
