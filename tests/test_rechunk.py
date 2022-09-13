@@ -8,10 +8,11 @@ import dask.core
 import numpy
 import numpy as np
 import pytest
-import xarray
 import zarr
 
 from rechunker import api
+
+xarray = pytest.importorskip("xarray")
 
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
@@ -137,7 +138,7 @@ def example_dataset(shape):
     ],
 )
 def test_parse_target_chunks_from_dim_chunks(
-    chunk_ds: xarray.Dataset, target_chunks, expected
+    chunk_ds: xarray.Dataset, target_chunks, expected  # type:ignore
 ) -> None:
     result = api.parse_target_chunks_from_dim_chunks(
         ds=chunk_ds, target_chunks=target_chunks
