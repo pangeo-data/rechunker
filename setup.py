@@ -24,7 +24,7 @@ test_requires = ["pytest", "hypothesis"]
 
 extras_require = {
     "complete": install_requires
-    + ["apache_beam", "pyyaml", "fsspec", "prefect", "xarray>=2022.3"],
+    + ["apache_beam", "pyyaml", "fsspec", "prefect<2", "xarray>=2022.3"],
     "docs": doc_requires,
     "test": test_requires,
 }
