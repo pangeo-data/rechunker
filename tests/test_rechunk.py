@@ -12,8 +12,6 @@ import zarr
 
 from rechunker import api
 
-xarray = pytest.importorskip("xarray")
-
 _DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
 
@@ -44,6 +42,8 @@ def test_invalid_executor():
 
 @pytest.fixture(scope="session")
 def chunk_ds():
+    xarray = pytest.importorskip("xarray")
+
     lon = numpy.arange(-180, 180)
     lat = numpy.arange(-90, 90)
     time = numpy.arange(365)
@@ -67,6 +67,7 @@ def example_dataset(shape):
     # TODO: simplify the creation of datasets here
     # TODO: See https://github.com/pangeo-data/rechunker/pull/93#discussion_r713939185
     # TODO: Maybe it is best to refactor tests to use `chunk_ds`
+    xarray = pytest.importorskip("xarray")
 
     a = numpy.arange(numpy.prod(shape)).reshape(shape).astype("f4")
     a[-1] = numpy.nan
@@ -137,9 +138,7 @@ def example_dataset(shape):
         ),
     ],
 )
-def test_parse_target_chunks_from_dim_chunks(
-    chunk_ds: xarray.Dataset, target_chunks, expected  # type:ignore
-) -> None:
+def test_parse_target_chunks_from_dim_chunks(chunk_ds, target_chunks, expected) -> None:
     result = api.parse_target_chunks_from_dim_chunks(
         ds=chunk_ds, target_chunks=target_chunks
     )
@@ -206,6 +205,8 @@ def test_rechunk_dataset(
     target_store,
     temp_store,
 ):
+    xarray = pytest.importorskip("xarray")
+
     if target_store.startswith("mapper"):
         fsspec = pytest.importorskip("fsspec")
         target_store = fsspec.get_mapper(str(tmp_path) + target_store)
@@ -274,6 +275,8 @@ def test_rechunk_dataset_dimchunks(
     target_chunks,
     max_mem,
 ):
+    xarray = pytest.importorskip("xarray")
+
     temp_store = "temp.zarr"
     target_store = "target.zarr"
     target_store = str(tmp_path / target_store)
@@ -485,6 +488,8 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
 
 
 def sample_xarray_dataset():
+    xarray = pytest.importorskip("xarray")
+
     return xarray.Dataset(
         dict(
             a=xarray.DataArray(
@@ -581,6 +586,8 @@ def test_repr_html(rechunked):
 
 
 def _is_collection(source):
+    xarray = pytest.importorskip("xarray")
+
     assert isinstance(
         source,
         (dask.array.Array, zarr.core.Array, zarr.hierarchy.Group, xarray.Dataset),
@@ -641,6 +648,8 @@ def test_rechunk_option_compression(rechunk_args):
 
 
 def test_rechunk_invalid_option(rechunk_args):
+    xarray = pytest.importorskip("xarray")
+
     if isinstance(rechunk_args["source"], xarray.Dataset):
         # Options are essentially unbounded for Xarray (for CF encoding params),
         # so check only options with special error cases
