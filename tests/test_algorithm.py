@@ -5,6 +5,7 @@ import warnings
 from unittest.mock import patch
 
 import hypothesis.strategies as st
+import numpy as np
 import pytest
 from hypothesis import assume, given
 
@@ -102,6 +103,71 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     assert new_chunks == expected
     chunk_mem = itemsize * new_chunks[0] * new_chunks[1] * new_chunks[2] * new_chunks[3]
     assert chunk_mem <= max_mem
+
+
+@pytest.mark.parametrize(
+    "read_chunks, write_chunks, stage_count, expected",
+    [
+        ((100, 1), (1, 100), 1, []),
+        ((100, 1), (1, 100), 2, [(10, 10)]),
+        ((100, 1), (1, 100), 3, [(21, 4), (4, 21)]),
+        ((1_000_000, 1), (1, 1_000_000), 2, [(1000, 1000)]),
+        ((1_000_000, 1), (1, 1_000_000), 3, [(10000, 100), (100, 10000)]),
+        ((1_000_000, 1), (1, 1_000_000), 4, [(31622, 31), (1000, 1000), (31, 31622)]),
+        ((10, 10), (1, 100), 2, [(3, 31)]),
+    ],
+)
+def test_calculate_stage_chunks(read_chunks, write_chunks, stage_count, expected):
+    actual = calculate_stage_chunks(read_chunks, write_chunks, stage_count)
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "shape, in_chunks, out_chunks, expected",
+    [
+        ((6,), (1,), (6,), 6),
+        ((10,), (1,), (6,), 10),
+        ((6,), (2,), (3,), 4),
+        ((24,), (2,), (3,), 16),
+        ((10,), (4,), (5,), 4),
+        ((100,), (4,), (5,), 40),
+        ((100, 100), (1, 100), (100, 1), 10_000),
+        ((100, 100), (1, 10), (10, 1), 10_000),
+        ((100, 100), (20, 20), (25, 25), (5 + 3) ** 2),
+        ((50, 50), (20, 20), (25, 25), ((5 + 3) // 2) ** 2),
+        ((100,), (43,), (100,), 3),
+        ((100,), (43,), (51,), 4),
+        ((100,), (43,), (40,), 5),
+        ((100,), (43,), (10,), 12),
+        ((100,), (43,), (1,), 100),
+    ],
+)
+def test_calculate_single_stage_io_ops(shape, in_chunks, out_chunks, expected):
+    actual = calculate_single_stage_io_ops(shape, in_chunks, out_chunks)
+    assert actual == expected
+
+
+@st.composite
+def io_ops_chunks(draw, max_len=1000):
+    size = draw(st.integers(min_value=1, max_value=max_len))
+    source = draw(st.integers(min_value=1, max_value=max_len))
+    target = draw(st.integers(min_value=1, max_value=max_len))
+    return (size, source, target)
+
+
+@given(io_ops_chunks())
+def test_calculate_single_stage_io_ops_hypothesis(inputs):
+    size, source, target = inputs
+
+    calculated = calculate_single_stage_io_ops((size,), (source,), (target,))
+
+    table = np.empty(shape=(size, 2), dtype=int)
+    for i in range(size):
+        table[i, 0] = i // source
+        table[i, 1] = i // target
+    actual = np.unique(table, axis=0).shape[0]
+
+    assert calculated == actual
 
 
 def _verify_single_stage_plan_correctness(
