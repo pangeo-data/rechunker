@@ -4,7 +4,7 @@ import warnings
 from math import ceil, floor
 from typing import List, Optional, Sequence, Tuple
 
-from rechunker.compat import prod
+from rechunker.compat import lcm, prod
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +274,7 @@ def multistage_rechunking_plan(
             warnings.warn(
                 "Search for multi-stage rechunking plan terminated before "
                 "achieving the minimum memory requirement due to increasing IO "
-                f"requirements. Smallest intermediates have size {int_mem}."
+                f"requirements. Smallest intermediates have size {int_mem}. "
                 f"Consider decreasing min_mem ({min_mem}) or increasing "
                 f"({max_mem}) to find a more efficient plan.",
                 category=ExcessiveIOWarning,

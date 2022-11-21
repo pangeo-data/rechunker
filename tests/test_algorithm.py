@@ -5,7 +5,6 @@ import warnings
 from unittest.mock import patch
 
 import hypothesis.strategies as st
-import numpy as np
 import pytest
 from hypothesis import assume, given
 
@@ -105,7 +104,7 @@ def test_consolidate_chunks_4D(shape, chunks, itemsize, max_mem, expected):
     assert chunk_mem <= max_mem
 
 
-def _verify_plan_correctness(
+def _verify_single_stage_plan_correctness(
     shape,
     source_chunks,
     read_chunks,
@@ -116,9 +115,9 @@ def _verify_plan_correctness(
     min_mem,
     max_mem,
 ):
-    assert itemsize * prod(read_chunks) <= max_mem
-    assert itemsize * prod(int_chunks) <= max_mem
-    assert itemsize * prod(write_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(read_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(int_chunks) <= max_mem
+    assert min_mem <= itemsize * prod(write_chunks) <= max_mem
     for n, sc, rc, ic, wc, tc in zip(
         shape, source_chunks, read_chunks, int_chunks, write_chunks, target_chunks
     ):
@@ -132,6 +131,7 @@ def _verify_plan_correctness(
 
 
 def _verify_multistage_plan_correctness(
+    shape,
     stages,
     source_chunks,
     target_chunks,
@@ -142,8 +142,9 @@ def _verify_multistage_plan_correctness(
 ):
     for sc, rc in zip(source_chunks, stages[0][0]):
         assert rc >= sc
-    for tc, wc in zip(target_chunks, stages[-1][-1]):
+    for n, tc, wc in zip(shape, target_chunks, stages[-1][-1]):
         assert wc >= tc
+        assert (wc == n) or (wc % tc == 0)
     for read_chunks, int_chunks, write_chunks in stages:
         assert min_mem <= itemsize * prod(read_chunks) <= max_mem
         assert itemsize * prod(int_chunks) <= max_mem
@@ -186,7 +187,9 @@ def test_rechunking_plan_1D(
     assert read_chunks == read_chunks_expected
     assert int_chunks == intermediate_chunks_expected
     assert write_chunks == write_chunks_expected
-    _verify_plan_correctness(
+    min_mem = itemsize
+    _verify_single_stage_plan_correctness(
+        shape,
         source_chunks,
         read_chunks,
         int_chunks,
@@ -369,8 +372,8 @@ def test_rechunking_plan_hypothesis(inputs):
         assert len(write_chunks) == ndim
 
     _verify_multistage_plan_correctness(
-        stages,
         shape,
+        stages,
         source_chunks,
         target_chunks,
         itemsize,
