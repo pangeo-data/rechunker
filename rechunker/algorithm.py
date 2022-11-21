@@ -1,10 +1,10 @@
 """Core rechunking algorithm stuff."""
 import logging
 import warnings
-from math import ceil, floor
+from math import ceil, floor, prod
 from typing import List, Optional, Sequence, Tuple
 
-from rechunker.compat import lcm, prod
+from rechunker.compat import lcm
 
 logger = logging.getLogger(__name__)
 

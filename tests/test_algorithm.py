@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
+from math import prod
 import warnings
 from unittest.mock import patch
 
@@ -17,7 +18,6 @@ from rechunker.algorithm import (
     multistage_rechunking_plan,
     rechunking_plan,
 )
-from rechunker.compat import prod
 
 
 @pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
