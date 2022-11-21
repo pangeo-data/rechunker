@@ -5,15 +5,7 @@ from typing import Any, Iterable, Iterator, Tuple, TypeVar
 import dask
 import numpy as np
 
-from .types import (
-    CopySpec,
-    CopySpecExecutor,
-    MultiStagePipeline,
-    ParallelPipelines,
-    ReadableArray,
-    Stage,
-    WriteableArray,
-)
+from .types import CopySpec, CopySpecExecutor, ParallelPipelines, Pipeline, Stage
 
 
 def chunk_keys(
@@ -33,39 +25,53 @@ def chunk_keys(
         )
 
 
-def copy_stage(
-    source: ReadableArray, target: WriteableArray, chunks: Tuple[int, ...]
-) -> Stage:
-    # use a closure to eliminate extra arguments
-    def _copy_chunk(chunk_key):
-        # calling np.asarray here allows the source to be a dask array
-        # TODO: could we asyncify this to operate in a streaming fashion
-        # make sure this is not happening inside a dask scheduler
-        print(f"_copy_chunk({chunk_key})")
-        with dask.config.set(scheduler="single-threaded"):
-            data = np.asarray(source[chunk_key])
-        target[chunk_key] = data
-
-    keys = list(chunk_keys(source.shape, chunks))
-    return Stage(_copy_chunk, keys)
+def copy_read_to_write(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.read.array[chunk_key])
+    config.write.array[chunk_key] = data
 
 
-def spec_to_pipeline(spec: CopySpec) -> MultiStagePipeline:
-    pipeline = []
+def copy_read_to_intermediate(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.read.array[chunk_key])
+    config.intermediate.array[chunk_key] = data
+
+
+def copy_intermediate_to_write(chunk_key, *, config=CopySpec):
+    with dask.config.set(scheduler="single-threaded"):
+        data = np.asarray(config.intermediate.array[chunk_key])
+    config.write.array[chunk_key] = data
+
+
+def spec_to_pipeline(spec: CopySpec) -> Pipeline:
+    # typing won't work until we start using numpy types
+    shape = spec.read.array.shape  # type: ignore
     if spec.intermediate.array is None:
-        pipeline.append(copy_stage(spec.read.array, spec.write.array, spec.read.chunks))
+        stages = [
+            Stage(
+                copy_read_to_write,
+                "copy_read_to_write",
+                mappable=chunk_keys(shape, spec.write.chunks),
+            )
+        ]
     else:
-        pipeline.append(
-            copy_stage(spec.read.array, spec.intermediate.array, spec.read.chunks)
-        )
-        pipeline.append(
-            copy_stage(spec.intermediate.array, spec.write.array, spec.write.chunks)
-        )
-    return pipeline
+        stages = [
+            Stage(
+                copy_read_to_intermediate,
+                "copy_read_to_intermediate",
+                mappable=chunk_keys(shape, spec.intermediate.chunks),
+            ),
+            Stage(
+                copy_intermediate_to_write,
+                "copy_intermediate_to_write",
+                mappable=chunk_keys(shape, spec.write.chunks),
+            ),
+        ]
+    return Pipeline(stages, config=spec)
 
 
 def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
-    return [spec_to_pipeline(spec) for spec in specs]
+    return tuple((spec_to_pipeline(spec) for spec in specs))
 
 
 T = TypeVar("T")

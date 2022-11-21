@@ -1,9 +1,12 @@
 """Core rechunking algorithm stuff."""
+import logging
 import warnings
 from math import ceil, floor
 from typing import List, Optional, Sequence, Tuple
 
-from rechunker.compat import lcm, prod
+from rechunker.compat import prod
+
+logger = logging.getLogger(__name__)
 
 
 def consolidate_chunks(
@@ -57,22 +60,35 @@ def consolidate_chunks(
     chunk_mem = itemsize * prod(chunks)
     if chunk_mem > max_mem:
         raise ValueError(f"chunk_mem {chunk_mem} > max_mem {max_mem}")
-    headroom = max_mem // chunk_mem
+    headroom = max_mem / chunk_mem
+    logger.debug(f"  initial headroom {headroom}")
 
     new_chunks = list(chunks)
     # only consolidate over these axes
     axes = sorted(chunk_limit_per_axis.keys())[::-1]
     for n_axis in axes:
-        c_new = min(
-            chunks[n_axis] * headroom, shape[n_axis], chunk_limit_per_axis[n_axis]
-        )
-        # print(f'  axis {n_axis}, {chunks[n_axis]} -> {c_new}')
-        new_chunks[n_axis] = c_new
+        upper_bound = min(shape[n_axis], chunk_limit_per_axis[n_axis])
+        # try to just increase the chunk to the upper bound
+        new_chunks[n_axis] = upper_bound
         chunk_mem = itemsize * prod(new_chunks)
-        headroom = max_mem // chunk_mem
+        upper_bound_headroom = max_mem / chunk_mem
+        if upper_bound_headroom > 1:
+            # ok it worked
+            headroom = upper_bound_headroom
+            logger.debug("  ! maxed out headroom")
+        else:
+            # nope, that was too much
+            # instead increase it by an integer multiple
+            larger_chunk = int(chunks[n_axis] * int(headroom))
+            # not sure the min check is needed any more; it safeguards against making it too big
+            new_chunks[n_axis] = min(larger_chunk, upper_bound)
+            chunk_mem = itemsize * prod(new_chunks)
+            headroom = max_mem / chunk_mem
 
-        if headroom == 1:
-            break
+        logger.debug(f"  axis {n_axis}, {chunks[n_axis]} -> {new_chunks[n_axis]}")
+        logger.debug(f"  chunk_mem {chunk_mem}, headroom {headroom}")
+
+        assert headroom >= 1
 
     return tuple(new_chunks)
 
@@ -128,7 +144,7 @@ def calculate_stage_chunks(
         # Add a small floating-point epsilon so we don't inadvertently
         # round-down even chunk-sizes.
         chunks = tuple(
-            floor(rc ** (1 - power) * wc ** power + epsilon)
+            floor(rc ** (1 - power) * wc**power + epsilon)
             for rc, wc in zip(read_chunks, write_chunks)
         )
         stage_chunks.append(chunks)
@@ -202,6 +218,9 @@ def multistage_rechunking_plan(
         )
 
     if consolidate_writes:
+        logger.debug(
+            f"consolidate_write_chunks({shape}, {target_chunks}, {itemsize}, {max_mem})"
+        )
         write_chunks = consolidate_chunks(shape, target_chunks, itemsize, max_mem)
     else:
         write_chunks = tuple(target_chunks)
@@ -218,6 +237,9 @@ def multistage_rechunking_plan(
                 limit = None
             read_chunk_limits.append(limit)
 
+        logger.debug(
+            f"consolidate_read_chunks({shape}, {source_chunks}, {itemsize}, {max_mem}, {read_chunk_limits})"
+        )
         read_chunks = consolidate_chunks(
             shape, source_chunks, itemsize, max_mem, read_chunk_limits
         )

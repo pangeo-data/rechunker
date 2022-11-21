@@ -1,4 +1,5 @@
 """Types definitions used by executors."""
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -8,7 +9,10 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
+
+from mypy_extensions import NamedArg
 
 # TODO: replace with Protocols, once Python 3.8+ is required
 Array = Any
@@ -56,28 +60,31 @@ class CopySpec(NamedTuple):
     write: ArrayProxy
 
 
-class Stage(NamedTuple):
-    """A Stage is when single function is mapped over multiple imputs.
-
-    Attributes
-    ----------
-    func: Callable
-        A function to be called in this stage. Accepts either 0 or 1 arguments.
-    map_args: List, Optional
-        Arguments which will be mapped to the function
-    """
-
-    func: Callable
-    map_args: Optional[Iterable] = None
-    # TODO: figure out how to make optional, like for a dataclass
-    # annotations: Dict = {}
+Config = Any  # TODO: better typing for config
+SingleArgumentStageFunction = Callable[
+    [Any, NamedArg(type=Any, name="config")], None
+]  # noqa: F821
+NoArgumentStageFunction = Callable[
+    [NamedArg(type=Any, name="config")], None
+]  # noqa: F821
+StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
 
 
-# A MultiStagePipeline contains one or more stages, to be executed in sequence
-MultiStagePipeline = Iterable[Stage]
+@dataclass(frozen=True)
+class Stage:
+    function: StageFunction
+    name: str
+    mappable: Optional[Iterable] = None
+
+
+@dataclass(frozen=True)
+class Pipeline:
+    stages: Iterable[Stage]
+    config: Optional[Config] = None
+
 
 # ParallelPipelines contains one or more MultiStagePipelines, to be executed in parallel
-ParallelPipelines = Iterable[MultiStagePipeline]
+ParallelPipelines = Tuple[Pipeline, ...]
 
 T = TypeVar("T")
 

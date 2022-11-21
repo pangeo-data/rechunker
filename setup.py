@@ -7,7 +7,11 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 
-install_requires = ["dask[array]", "zarr", "xarray"]
+install_requires = [
+    "dask[array,diagnostics]",
+    "zarr>=2.11",
+    "mypy_extensions",
+]
 doc_requires = [
     "sphinx",
     "sphinxcontrib-srclinks",
@@ -16,21 +20,25 @@ doc_requires = [
     "IPython",
     "nbsphinx",
 ]
+test_requires = ["pytest", "hypothesis"]
 
 extras_require = {
     "complete": install_requires
-    + ["apache_beam", "pyyaml", "fsspec", "prefect", "pywren_ibm_cloud"],
+    + ["apache_beam", "pyyaml", "fsspec", "prefect<2", "xarray>=2022.3"],
     "docs": doc_requires,
+    "test": test_requires,
 }
-extras_require["dev"] = extras_require["complete"] + [
-    "pytest",
-    "pytest-cov",
-    "hypothesis",
-    "flake8",
-    "black",
-    "codecov",
-    "mypy==0.782",
-]
+extras_require["dev"] = (
+    extras_require["complete"]
+    + extras_require["test"]
+    + [
+        "pytest-cov",
+        "flake8",
+        "black",
+        "codecov",
+        "mypy==0.782",
+    ]
+)
 
 setup(
     name="rechunker",
@@ -45,14 +53,14 @@ setup(
         "Topic :: Database",
         "Topic :: Scientific/Engineering",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     packages=find_packages(exclude=["docs", "tests", "tests.*", "docs.*"]),
     install_requires=install_requires,
     extras_require=extras_require,
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     long_description=long_description,
     long_description_content_type="text/markdown",
     setup_requires="setuptools_scm",

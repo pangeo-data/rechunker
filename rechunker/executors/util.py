@@ -33,11 +33,23 @@ class DirectCopySpec(NamedTuple):
 def split_into_direct_copies(spec: CopySpec) -> Tuple[DirectCopySpec, ...]:
     """Convert a rechunked copy into a list of direct copies."""
     if spec.intermediate.array is None:
-        return (DirectCopySpec(spec.read.array, spec.write.array, spec.read.chunks,),)
+        return (
+            DirectCopySpec(
+                spec.read.array,
+                spec.write.array,
+                spec.read.chunks,
+            ),
+        )
     else:
         return (
-            DirectCopySpec(spec.read.array, spec.intermediate.array, spec.read.chunks,),
             DirectCopySpec(
-                spec.intermediate.array, spec.write.array, spec.write.chunks,
+                spec.read.array,
+                spec.intermediate.array,
+                spec.read.chunks,
+            ),
+            DirectCopySpec(
+                spec.intermediate.array,
+                spec.write.array,
+                spec.write.chunks,
             ),
         )
