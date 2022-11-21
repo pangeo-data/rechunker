@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
-from math import prod
 import warnings
+from math import prod
 from unittest.mock import patch
 
 import hypothesis.strategies as st
