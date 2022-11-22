@@ -5,6 +5,7 @@ from math import ceil, floor, prod
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
+
 from rechunker.compat import lcm
 
 logger = logging.getLogger(__name__)
