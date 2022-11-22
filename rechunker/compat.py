@@ -1,13 +1,10 @@
-import operator
-from functools import reduce
-from typing import Sequence
+import math
 
+try:
+    from math import lcm  # type: ignore  # Python 3.9
+except ImportError:
 
-def prod(iterable: Sequence[int]) -> int:
-    """Implementation of `math.prod()` all Python versions."""
-    try:
-        from math import prod as mathprod  # type: ignore # Python 3.8
-
-        return mathprod(iterable)
-    except ImportError:
-        return reduce(operator.mul, iterable, 1)
+    def lcm(a: int, b: int) -> int:  # type: ignore
+        """Implementation of `math.lcm()` for all Python versions."""
+        # https://stackoverflow.com/a/51716959/809705
+        return a * b // math.gcd(a, b)
