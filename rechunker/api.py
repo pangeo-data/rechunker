@@ -6,15 +6,7 @@ from typing import Union
 
 import dask
 import dask.array
-import xarray
 import zarr
-from xarray.backends.zarr import (
-    DIMENSION_KEY,
-    encode_zarr_attr_value,
-    encode_zarr_variable,
-    extract_zarr_variable_encoding,
-)
-from xarray.conventions import encode_dataset_coordinates
 
 from rechunker.algorithm import rechunking_plan
 from rechunker.pipeline import CopySpecToPipelinesMixin
@@ -143,6 +135,8 @@ def _get_dims_from_zarr_array(z_array):
 
 
 def _encode_zarr_attributes(attrs):
+    from xarray.backends.zarr import encode_zarr_attr_value
+
     return {k: encode_zarr_attr_value(v) for k, v in attrs.items()}
 
 
@@ -364,7 +358,20 @@ def _setup_rechunk(
     target_options = target_options or {}
     temp_options = temp_options or {}
 
-    if isinstance(source, xarray.Dataset):
+    # import xarray dynamically since it is not a required dependency
+    try:
+        import xarray
+        from xarray.backends.zarr import (
+            DIMENSION_KEY,
+            encode_zarr_attr_value,
+            encode_zarr_variable,
+            extract_zarr_variable_encoding,
+        )
+        from xarray.conventions import encode_dataset_coordinates
+    except ImportError:
+        xarray = None
+
+    if xarray and isinstance(source, xarray.Dataset):
         if not isinstance(target_chunks, dict):
             raise ValueError(
                 "You must specify ``target-chunks`` as a dict when rechunking a dataset."

@@ -10,7 +10,6 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 install_requires = [
     "dask[array,diagnostics]",
     "zarr>=2.11",
-    "xarray>=2022.3",
     "mypy_extensions",
 ]
 doc_requires = [
@@ -24,7 +23,8 @@ doc_requires = [
 test_requires = ["pytest", "hypothesis"]
 
 extras_require = {
-    "complete": install_requires + ["apache_beam", "pyyaml", "fsspec", "prefect"],
+    "complete": install_requires
+    + ["apache_beam", "pyyaml", "fsspec", "prefect<2", "xarray>=2022.3"],
     "docs": doc_requires,
     "test": test_requires,
 }
