@@ -20,17 +20,17 @@ from rechunker.algorithm import (
 )
 
 
-@pytest.mark.parametrize("shape, chunks", [((8, 8), (1, 2))])
+@pytest.mark.parametrize("shape, chunks", [((8, 8, 8), (1, 2, -1))])
 @pytest.mark.parametrize(
     "itemsize, max_mem, expected",
     [
-        (4, 8, (1, 2)),  # same chunks in and out
-        (4, 16, (1, 4)),  # double chunks on axis 1
-        (4, 17, (1, 4)),  # no difference
-        (4, 64, (2, 8)),  # start on axis 0
-        (4, 256, (8, 8)),  # maximum size
-        (4, 512, (8, 8)),  # can't exceed total shape
-        (8, 256, (4, 8)),  # can't exceed total shape
+        (4, 8, (1, 2, 1)),  # same chunks in and out
+        (4, 16, (1, 2, 2)),  # double chunks on axis 1
+        (4, 17, (1, 2, 2)),  # no difference
+        (4, 64, (1, 2, 8)),  # start on axis 0
+        (4, 256, (1, 8, 8)),  # maximum size
+        (4, 512, (2, 8, 8)),  # can't exceed total shape
+        (8, 256, (1, 4, 8)),  # can't exceed total shape
     ],
 )
 def test_consolidate_chunks(shape, chunks, itemsize, max_mem, expected):
