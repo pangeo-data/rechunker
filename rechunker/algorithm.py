@@ -65,7 +65,9 @@ def consolidate_chunks(
     headroom = max_mem / chunk_mem
     logger.debug(f"  initial headroom {headroom}")
 
-    new_chunks = list(chunks)
+    # If -1 is provided as shorthand for all, replaces -1 with chunk size
+    new_chunks = [s if c == -1 else c for c, s in zip(chunks, shape)]
+
     # only consolidate over these axes
     axes = sorted(chunk_limit_per_axis.keys())[::-1]
     for n_axis in axes:
