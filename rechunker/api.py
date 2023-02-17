@@ -343,6 +343,19 @@ def parse_target_chunks_from_dim_chunks(ds, target_chunks):
     group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}
     return group_chunks_tuples
 
+def _copy_group_attributes(source, target):
+    """Visit every source group and create it on the target and move any attributes found."""
+
+    def _update_group_attrs(name):
+        if isinstance(source.get(name), zarr.Group):
+            try:
+                group = target.create_group(name)
+                group.attrs.update(source.get(name).attrs)
+            except AttributeError:
+                pass
+
+    source.visit(_update_group_attrs)
+
 
 def _setup_rechunk(
     source,
@@ -457,6 +470,7 @@ def _setup_rechunk(
         else:
             temp_group = None
         target_group = zarr.group(target_store)
+        _copy_group_attributes(source, target_group)
         target_group.attrs.update(source.attrs)
 
         copy_specs = []
