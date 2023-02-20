@@ -10,4 +10,4 @@ Rechunker
 
 Rechunker is designed to be used within a parallel execution framework such as [Dask](https://dask.org/).
 
-See [the documentation](https://rechunker.readthedocs.io/en/latest/) for more. 
+See [the documentation](https://rechunker.readthedocs.io/en/latest/) for more.
