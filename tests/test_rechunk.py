@@ -487,6 +487,7 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
         a_tar = dsa.from_zarr(target_group[aname])
         assert dsa.equal(a_tar, 1).all().compute()
 
+
 @pytest.mark.parametrize(
     "executor",
     [
@@ -499,7 +500,9 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
 @pytest.mark.parametrize("source_store", ["source.zarr", "mapper.source.zarr"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
-def test_rechunk_group_attributes(tmp_path, executor, source_store, target_store, temp_store):
+def test_rechunk_group_attributes(
+    tmp_path, executor, source_store, target_store, temp_store
+):
     if source_store.startswith("mapper"):
         pytest.importorskip("fsspec")
         store_source = FSStore(str(tmp_path) + source_store)
@@ -512,20 +515,19 @@ def test_rechunk_group_attributes(tmp_path, executor, source_store, target_store
 
     root_group = zarr.group(store_source, overwrite=True)
 
-
-    root_group.create_group('foo/bar/baz')
+    root_group.create_group("foo/bar/baz")
 
     # 800 byte chunks
-    a = root_group['foo'].ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
+    a = root_group["foo"].ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
     a.attrs["description"] = "a array description"
-    b = root_group['foo/bar/baz'].ones("b", shape=(20,), chunks=(10,), dtype="f4")
+    b = root_group["foo/bar/baz"].ones("b", shape=(20,), chunks=(10,), dtype="f4")
     b.attrs["description"] = "b array description"
 
     # group attributes
     root_group.attrs["description"] = "root description"
-    root_group['foo'].attrs["description"] = "foo group description"
-    root_group['foo/bar'].attrs["description"] = "bar group description"
-    root_group['foo/bar/baz'].attrs["description"] = "baz group description"
+    root_group["foo"].attrs["description"] = "foo group description"
+    root_group["foo/bar"].attrs["description"] = "bar group description"
+    root_group["foo/bar/baz"].attrs["description"] = "baz group description"
 
     max_mem = 1600  # should force a two-step plan for a
     target_chunks = {"foo/a": (5, 10, 4), "foo/bar/baz/b": (20,)}
@@ -542,21 +544,22 @@ def test_rechunk_group_attributes(tmp_path, executor, source_store, target_store
 
     target_root = zarr.open(target_store)
     assert dict(root_group.attrs) == dict(target_root.attrs)
-    attr_values = [("/", "root description"),
-                   ("foo", "foo group description"),
-                   ("foo/a", "a array description"),
-                   ("foo/bar", "bar group description"),
-                   ("foo/bar/baz", "baz group description"),
-                   ("foo/bar/baz/b", "b array description")]
+    attr_values = [
+        ("/", "root description"),
+        ("foo", "foo group description"),
+        ("foo/a", "a array description"),
+        ("foo/bar", "bar group description"),
+        ("foo/bar/baz", "baz group description"),
+        ("foo/bar/baz/b", "b array description"),
+    ]
     for attr_loc, attr_value in attr_values:
-        assert target_root[attr_loc].attrs['description'] == attr_value
+        assert target_root[attr_loc].attrs["description"] == attr_value
 
     rechunked.execute()
     for aname in target_chunks:
         assert target_root[aname].chunks == target_chunks[aname]
         a_tar = dsa.from_zarr(target_root[aname])
         assert dsa.equal(a_tar, 1).all().compute()
-
 
 
 @pytest.mark.parametrize(
