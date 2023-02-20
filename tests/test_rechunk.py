@@ -561,6 +561,7 @@ def test_rechunk_group_attributes(
         a_tar = dsa.from_zarr(target_root[aname])
         assert dsa.equal(a_tar, 1).all().compute()
 
+
 def sample_xarray_dataset():
     xarray = pytest.importorskip("xarray")
 
