@@ -349,11 +349,8 @@ def _copy_group_attributes(source, target):
 
     def _update_group_attrs(name):
         if isinstance(source.get(name), zarr.Group):
-            try:
-                group = target.create_group(name)
-                group.attrs.update(source.get(name).attrs)
-            except AttributeError:
-                pass
+            group = target.create_group(name)
+            group.attrs.update(source.get(name).attrs)
 
     source.visit(_update_group_attrs)
 
