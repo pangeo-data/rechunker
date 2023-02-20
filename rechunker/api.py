@@ -343,6 +343,7 @@ def parse_target_chunks_from_dim_chunks(ds, target_chunks):
     group_chunks_tuples = {var: tuple(chunks) for (var, chunks) in group_chunks.items()}
     return group_chunks_tuples
 
+
 def _copy_group_attributes(source, target):
     """Visit every source group and create it on the target and move any attributes found."""
 
