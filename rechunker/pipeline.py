@@ -1,6 +1,6 @@
 import itertools
 import math
-from typing import Any, Iterable, Iterator, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, Tuple
 
 import dask
 import numpy as np
@@ -74,11 +74,8 @@ def specs_to_pipelines(specs: Iterable[CopySpec]) -> ParallelPipelines:
     return tuple((spec_to_pipeline(spec) for spec in specs))
 
 
-T = TypeVar("T")
-
-
 class CopySpecToPipelinesMixin(CopySpecExecutor):
-    def prepare_plan(self, specs: Iterable[CopySpec]) -> T:
+    def prepare_plan(self, specs: Iterable[CopySpec]):
         pipelines = specs_to_pipelines(specs)
         return self.pipelines_to_plan(pipelines)
 

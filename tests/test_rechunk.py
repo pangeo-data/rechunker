@@ -209,7 +209,7 @@ def test_rechunk_dataset(
     xarray = pytest.importorskip("xarray")
 
     if target_store.startswith("mapper"):
-        fsspec = pytest.importorskip("fsspec")
+        pytest.importorskip("fsspec")
         target_store = FSStore(str(tmp_path) + target_store)
         temp_store = FSStore(str(tmp_path) + temp_store)
     else:
@@ -446,7 +446,7 @@ def test_rechunk_dask_array(
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
 def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
     if source_store.startswith("mapper"):
-        fsspec = pytest.importorskip("fsspec")
+        pytest.importorskip("fsspec")
         store_source = FSStore(str(tmp_path) + source_store)
         target_store = FSStore(str(tmp_path) + target_store)
         temp_store = FSStore(str(tmp_path) + temp_store)
