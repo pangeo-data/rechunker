@@ -9,6 +9,7 @@ import numpy
 import numpy as np
 import pytest
 import zarr
+from zarr.storage import FSStore
 
 from rechunker import api
 
@@ -209,8 +210,8 @@ def test_rechunk_dataset(
 
     if target_store.startswith("mapper"):
         fsspec = pytest.importorskip("fsspec")
-        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
-        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
+        target_store = FSStore(str(tmp_path) + target_store)
+        temp_store = FSStore(str(tmp_path) + temp_store)
     else:
         target_store = str(tmp_path / target_store)
         temp_store = str(tmp_path / temp_store)
@@ -446,15 +447,15 @@ def test_rechunk_dask_array(
 def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
     if source_store.startswith("mapper"):
         fsspec = pytest.importorskip("fsspec")
-        store_source = fsspec.get_mapper(str(tmp_path) + source_store)
-        target_store = fsspec.get_mapper(str(tmp_path) + target_store)
-        temp_store = fsspec.get_mapper(str(tmp_path) + temp_store)
+        store_source = FSStore(str(tmp_path) + source_store)
+        target_store = FSStore(str(tmp_path) + target_store)
+        temp_store = FSStore(str(tmp_path) + temp_store)
     else:
         store_source = str(tmp_path / source_store)
         target_store = str(tmp_path / target_store)
         temp_store = str(tmp_path / temp_store)
 
-    group = zarr.group(store_source)
+    group = zarr.group(store_source, overwrite=True)
     group.attrs["foo"] = "bar"
     # 800 byte chunks
     a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
