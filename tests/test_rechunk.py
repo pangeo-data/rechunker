@@ -444,9 +444,7 @@ def test_rechunk_dask_array(
 @pytest.mark.parametrize("source_store", ["source.zarr", "mapper.source.zarr"])
 @pytest.mark.parametrize("target_store", ["target.zarr", "mapper.target.zarr"])
 @pytest.mark.parametrize("temp_store", ["temp.zarr", "mapper.temp.zarr"])
-def test_rechunk_group(
-    tmp_path, executor, source_store, target_store, temp_store
-):
+def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
     if source_store.startswith("mapper"):
         pytest.importorskip("fsspec")
         store_source = FSStore(str(tmp_path) + source_store)
