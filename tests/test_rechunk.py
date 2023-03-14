@@ -456,15 +456,22 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
         temp_store = str(tmp_path / temp_store)
 
     group = zarr.group(store_source, overwrite=True)
-    group.attrs["foo"] = "bar"
+    group.create_group("foo/bar/baz")
+
     # 800 byte chunks
     a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
-    a.attrs["foo"] = "bar"
-    b = group.ones("b", shape=(20,), chunks=(10,), dtype="f4")
-    b.attrs["foo"] = "bar"
+    a.attrs["description"] = "a array description"
+    b = group["foo/bar/baz"].ones("b", shape=(20,), chunks=(10,), dtype="f4")
+    b.attrs["description"] = "b array description"
+
+    # group attributes
+    group.attrs["description"] = "root description"
+    group["foo"].attrs["description"] = "foo group description"
+    group["foo/bar"].attrs["description"] = "bar group description"
+    group["foo/bar/baz"].attrs["description"] = "baz group description"
 
     max_mem = 1600  # should force a two-step plan for a
-    target_chunks = {"a": (5, 10, 4), "b": (20,)}
+    target_chunks = {"a": (5, 10, 4), "foo/bar/baz/b": (20,)}
 
     rechunked = api.rechunk(
         group,
@@ -478,8 +485,18 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
 
     target_group = zarr.open(target_store)
     assert "a" in target_group
-    assert "b" in target_group
+    assert "foo/bar/baz/b" in target_group
     assert dict(group.attrs) == dict(target_group.attrs)
+    attr_values = [
+        ("/", "root description"),
+        ("a", "a array description"),
+        ("foo", "foo group description"),
+        ("foo/bar", "bar group description"),
+        ("foo/bar/baz", "baz group description"),
+        ("foo/bar/baz/b", "b array description"),
+    ]
+    for attr_loc, attr_value in attr_values:
+        assert target_group[attr_loc].attrs["description"] == attr_value
 
     rechunked.execute()
     for aname in target_chunks:
