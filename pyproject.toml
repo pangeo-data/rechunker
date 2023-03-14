@@ -42,7 +42,7 @@ dev = [
   "numpydoc",
   "pytest",
   "pytest-cov",
-  "sphinx==0.8.12",
+  "sphinx",
   "sphinx-pangeo-theme",
   "sphinxcontrib-srclinks",
 ]
