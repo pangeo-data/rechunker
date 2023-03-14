@@ -35,13 +35,13 @@ dev = [
   "black",
   "codecov",
   "flake8",
-  "mypy==0.782",
-  "pytest-cov",
   "hypothesis",
-  "pytest",
   "IPython",
+  "mypy==0.782",
   "nbsphinx",
   "numpydoc",
+  "pytest",
+  "pytest-cov",
   "sphinx",
   "sphinx-pangeo-theme",
   "sphinxcontrib-srclinks",
@@ -58,7 +58,6 @@ test = [
   "hypothesis",
   "pytest",
 ]
-
 [project.urls]
 documentation = "https://rechunker.readthedocs.io"
 homepage = "https://pypi.org/project/rechunker/"
