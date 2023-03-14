@@ -4,8 +4,14 @@ Release Notes
 Unreleased
 ----------
 
+v0.5.1 - 2023-03-14
+-------------------
 
-v0.5.0 - 2023-04-14
+- Properly copy all attributes. By `Matt Savoie <https://github.com/flamingbear>`_.
+- Fix regression with Zarr + fsspec. By `Ryan Abernathey <https://github.com/rabernat>`_.
+
+
+v0.5.0 - 2022-04-14
 -------------------
 
 - Fix major bug with dask executor.
