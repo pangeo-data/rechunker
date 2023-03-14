@@ -488,7 +488,6 @@ def _setup_rechunk(
         return copy_specs, temp_group, target_group
 
     elif isinstance(source, (zarr.core.Array, dask.array.Array)):
-
         copy_spec = _setup_array_rechunk(
             source,
             target_chunks,
