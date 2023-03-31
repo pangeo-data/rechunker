@@ -17,7 +17,6 @@ from rechunker.types import Pipeline, Stage
 
 @pytest.fixture
 def example_pipeline(tmpdir_factory):
-
     tmp = tmpdir_factory.mktemp("pipeline_data")
 
     @dataclass(frozen=True)

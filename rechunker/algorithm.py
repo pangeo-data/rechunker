@@ -270,7 +270,6 @@ def multistage_rechunking_plan(
 
     # increase the number of stages until min_mem is exceeded
     for stage_count in range(1, MAX_STAGES):
-
         stage_chunks = calculate_stage_chunks(read_chunks, write_chunks, stage_count)
         pre_chunks = [read_chunks] + stage_chunks
         post_chunks = stage_chunks + [write_chunks]

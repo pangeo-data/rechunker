@@ -1,0 +1,71 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=42",
+  "setuptools_scm[toml]>=3.4",
+  "wheel",
+]
+
+[project]
+name = "rechunker"
+description = "A library for rechunking arrays"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Pangeo developers", email = "ryan.abernathey@gmail.com"},
+]
+requires-python = ">=3.8"
+dynamic = [
+  "version",
+]
+dependencies = [
+  "dask[array,diagnostics]",
+  "mypy_extensions",
+  "zarr>=2.11",
+]
+[project.optional-dependencies]
+complete = [
+  "apache_beam",
+  "fsspec",
+  "prefect<2",
+  "pyyaml",
+  "xarray>=2022.3",
+]
+dev = [
+  "black",
+  "codecov",
+  "flake8",
+  "hypothesis",
+  "IPython",
+  "mypy==0.782",
+  "nbsphinx",
+  "numpydoc",
+  "pytest",
+  "pytest-cov",
+  "sphinx",
+  "sphinx-pangeo-theme",
+  "sphinxcontrib-srclinks",
+]
+docs = [
+  "IPython",
+  "nbsphinx",
+  "numpydoc",
+  "sphinx",
+  "sphinx-pangeo-theme",
+  "sphinxcontrib-srclinks",
+]
+test = [
+  "hypothesis",
+  "pytest",
+]
+[project.urls]
+documentation = "https://rechunker.readthedocs.io"
+homepage = "https://pypi.org/project/rechunker/"
+repository = "https://github.com/pangeo-data/rechunker"
+
+[tool.setuptools]
+packages = ["rechunker"]
+
+[tool.setuptools_scm]
+write_to = "rechunker/_version.py"
+write_to_template = "__version__ = '{version}'"

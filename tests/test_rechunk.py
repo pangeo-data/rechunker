@@ -353,7 +353,6 @@ def test_rechunk_dataset_dimchunks(
 def test_rechunk_array(
     tmp_path, shape, source_chunks, dtype, dims, target_chunks, max_mem, executor
 ):
-
     ### Create source array ###
     store_source = str(tmp_path / "source.zarr")
     source_array = zarr.ones(
@@ -409,7 +408,6 @@ def test_rechunk_array(
 def test_rechunk_dask_array(
     tmp_path, shape, source_chunks, dtype, target_chunks, max_mem
 ):
-
     ### Create source array ###
     source_array = dsa.ones(shape, chunks=source_chunks, dtype=dtype)
 
