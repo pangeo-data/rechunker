@@ -142,12 +142,14 @@ def _encode_zarr_attributes(attrs):
 
 def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     # wrapper that maybe creates the array within a group
-    if name is not None:
-        assert isinstance(store_or_group, zarr.hierarchy.Group)
+    print("_zarr_empty", name, store_or_group)
+    if isinstance(store_or_group, zarr.hierarchy.Group):
+        assert name is not None
         return store_or_group.empty(
             name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
         )
     else:
+        # ignore name
         return zarr.empty(
             shape, chunks=chunks, dtype=dtype, store=store_or_group, **kwargs
         )
@@ -222,6 +224,7 @@ def rechunk(
     temp_store=None,
     temp_options=None,
     executor: Union[str, CopySpecExecutor] = "dask",
+    array_name=None,
 ) -> Rechunked:
     """
     Rechunk a Zarr Array or Group, a Dask Array, or an Xarray Dataset
@@ -287,6 +290,10 @@ def rechunk(
         * python
         * pywren
 
+    array_name: str, optional
+        Required when rechunking an array if the any of the targets is a group
+
+
     Returns
     -------
     rechunked : :class:`Rechunked` object
@@ -302,6 +309,7 @@ def rechunk(
         target_options=target_options,
         temp_store=temp_store,
         temp_options=temp_options,
+        array_name=array_name,
     )
     plan = executor.prepare_plan(copy_spec)
     return Rechunked(executor, plan, source, intermediate, target)
@@ -363,6 +371,7 @@ def _setup_rechunk(
     target_options=None,
     temp_store=None,
     temp_options=None,
+    array_name=None,
 ):
     if temp_options is None:
         temp_options = target_options
@@ -387,15 +396,26 @@ def _setup_rechunk(
             raise ValueError(
                 "You must specify ``target-chunks`` as a dict when rechunking a dataset."
             )
+        if array_name is not None:
+            raise ValueError(
+                "Can't specify `array_name` when rechunking an Xarray Dataset."
+            )
 
         variables, attrs = encode_dataset_coordinates(source)
         attrs = _encode_zarr_attributes(attrs)
 
         if temp_store is not None:
-            temp_group = zarr.group(temp_store)
+            if isinstance(temp_store, zarr.Group):
+                temp_group = temp_store
+            else:
+                temp_group = zarr.group(temp_store)
         else:
             temp_group = None
-        target_group = zarr.group(target_store)
+
+        if isinstance(target_store, zarr.Group):
+            target_group = target_store
+        else:
+            target_group = zarr.group(target_store)
         target_group.attrs.update(attrs)
 
         # if ``target_chunks`` is specified per dimension (xarray ``.rechunk`` style),
@@ -462,12 +482,21 @@ def _setup_rechunk(
             raise ValueError(
                 "You must specify ``target-chunks`` as a dict when rechunking a group."
             )
+        if array_name is not None:
+            raise ValueError("Can't specify `array_name` when rechunking a Group.")
 
         if temp_store is not None:
-            temp_group = zarr.group(temp_store)
+            if isinstance(temp_store, zarr.Group):
+                temp_group = temp_store
+            else:
+                temp_group = zarr.group(temp_store)
         else:
             temp_group = None
-        target_group = zarr.group(target_store)
+
+        if isinstance(target_store, zarr.Group):
+            target_group = target_store
+        else:
+            target_group = zarr.group(target_store)
         _copy_group_attributes(source, target_group)
         target_group.attrs.update(source.attrs)
 
@@ -488,6 +517,11 @@ def _setup_rechunk(
         return copy_specs, temp_group, target_group
 
     elif isinstance(source, (zarr.core.Array, dask.array.Array)):
+        if (
+            isinstance(target_store, zarr.Group) or isinstance(temp_store, zarr.Group)
+        ) and array_name is None:
+            raise ValueError("Can't rechunk to a group without a name for the array.")
+
         copy_spec = _setup_array_rechunk(
             source,
             target_chunks,
@@ -496,6 +530,7 @@ def _setup_rechunk(
             target_options=target_options,
             temp_store_or_group=temp_store,
             temp_options=temp_options,
+            name=array_name,
         )
         intermediate = copy_spec.intermediate.array
         target = copy_spec.write.array
