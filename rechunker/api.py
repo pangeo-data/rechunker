@@ -142,7 +142,6 @@ def _encode_zarr_attributes(attrs):
 
 def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     # wrapper that maybe creates the array within a group
-    print("_zarr_empty", name, store_or_group)
     if isinstance(store_or_group, zarr.hierarchy.Group):
         assert name is not None
         return store_or_group.empty(
