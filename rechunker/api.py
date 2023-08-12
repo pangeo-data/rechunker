@@ -142,7 +142,7 @@ def _encode_zarr_attributes(attrs):
 
 def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     # wrapper that maybe creates the array within a group
-    if isinstance(store_or_group, zarr.hierarchy.Group):
+    if isinstance(store_or_group, zarr.Group):
         assert name is not None
         return store_or_group.empty(
             name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
@@ -290,7 +290,7 @@ def rechunk(
         * pywren
 
     array_name: str, optional
-        Required when rechunking an array if the any of the targets is a group
+        Required when rechunking an array if any of the targets is a group
 
 
     Returns
