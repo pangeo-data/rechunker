@@ -790,3 +790,28 @@ def test_no_intermediate_fused(tmp_path):
     # rechunked.plan is a list of dask delayed objects
     num_tasks = len([v for v in rechunked.plan[0].dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
+
+
+def test_rechunk_array_to_group_no_name(tmp_path):
+    a = sample_zarr_array(tmp_path)
+    target_chunks = a.chunks
+    max_mem = "100MB"
+    target_group = zarr.group(str(tmp_path) + "/group.zarr")
+    with pytest.raises(ValueError, match="without a name for the array"):
+        api.rechunk(a, target_chunks, max_mem, target_group)
+
+
+def test_rechunk_group_to_group_with_name(tmp_path):
+    source_group = sample_zarr_group(tmp_path)
+    target_chunks = {aname: source_group[aname].chunks for aname in source_group}
+    max_mem = "100MB"
+    target_group = zarr.group(str(tmp_path) + "/group.zarr")
+    with pytest.raises(ValueError, match="Can't specify `array_name`"):
+        api.rechunk(
+            source_group,
+            target_chunks,
+            max_mem,
+            max_mem,
+            target_group,
+            array_name="foo",
+        )
