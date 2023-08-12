@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install .[dev]
+          pip install ".[dev,complete]"
       - name: Test with pytest
         run: |
           py.test tests -v --cov=rechunker --cov-config .coveragerc --cov-report term-missing
