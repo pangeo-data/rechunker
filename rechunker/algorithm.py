@@ -45,6 +45,7 @@ def consolidate_chunks(
         chunk_limits = shape
     assert len(chunk_limits) == ndim
 
+
     # now convert chunk_limits to a dictionary
     # key: axis, value: limit
     chunk_limit_per_axis = {}
