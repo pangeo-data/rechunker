@@ -609,7 +609,7 @@ def _setup_array_rechunk(
     except AttributeError:
         pass
 
-    if read_chunks == write_chunks:
+    if read_chunks == write_chunks or read_chunks == int_chunks:
         int_array = None
     else:
         # do intermediate store

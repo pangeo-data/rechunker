@@ -792,6 +792,27 @@ def test_no_intermediate_fused(tmp_path):
     assert num_tasks < 20  # less than if no fuse
 
 
+def test_no_intermediate_store(tmp_path):
+    """Test behaviour when read_chunks == int_chunks."""
+    shape = (1000, 2000, 2000)
+    source_chunks = (1, 2000, 2000)
+    dtype = "f4"
+    max_mem = 20000000000
+    target_chunks = (1000, 4, 4)
+
+    store_source = str(tmp_path / "source.zarr")
+    source_array = zarr.ones(
+        shape, chunks=source_chunks, dtype=dtype, store=store_source
+    )
+
+    target_store = str(tmp_path / "target.zarr")
+    temp_store = str(tmp_path / "temp_store.zarr")
+    rechunked = api.rechunk(
+        source_array, target_chunks, max_mem, target_store, temp_store=temp_store
+    )
+    assert "Intermediate" not in repr(rechunked)
+
+
 def test_rechunk_array_to_group_no_name(tmp_path):
     a = sample_zarr_array(tmp_path)
     target_chunks = a.chunks
