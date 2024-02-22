@@ -294,7 +294,7 @@ def multistage_rechunking_plan(
                 "achieving the minimum memory requirement due to increasing IO "
                 f"requirements. Smallest intermediates have size {int_mem}. "
                 f"Consider decreasing min_mem ({min_mem}) or increasing "
-                f"({max_mem}) to find a more efficient plan.",
+                f"max_mem ({max_mem}) to find a more efficient plan.",
                 category=ExcessiveIOWarning,
             )
             assert prev_plan is not None
