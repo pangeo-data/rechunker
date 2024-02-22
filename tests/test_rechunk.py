@@ -790,8 +790,8 @@ def test_no_intermediate_fused(tmp_path):
     # rechunked.plan is a list of dask delayed objects
     num_tasks = len([v for v in rechunked.plan[0].dask.values() if dask.core.istask(v)])
     assert num_tasks < 20  # less than if no fuse
-    
-    
+
+
 def test_no_intermediate_store(tmp_path):
     """Test behaviour when read_chunks == int_chunks."""
     shape = (1000, 2000, 2000)
@@ -806,9 +806,10 @@ def test_no_intermediate_store(tmp_path):
     )
 
     target_store = str(tmp_path / "target.zarr")
-    temp_store= str(tmp_path / "temp_store.zarr")
-    rechunked = api.rechunk(source_array, target_chunks, max_mem, target_store,
-                            temp_store=temp_store)
+    temp_store = str(tmp_path / "temp_store.zarr")
+    rechunked = api.rechunk(
+        source_array, target_chunks, max_mem, target_store, temp_store=temp_store
+    )
     assert "Intermediate" not in repr(rechunked)
 
 
