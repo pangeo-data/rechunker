@@ -206,6 +206,13 @@ def _get_executor(name: str) -> CopySpecExecutor:
             pass
 
         return PythonCopySpecExecutor()
+    elif name.lower() == "lithops":
+        from rechunker.executors.lithops import LithopsPipelineExecutor
+
+        class LithopsCopySpecExecutor(LithopsPipelineExecutor, CopySpecToPipelinesMixin):
+            pass
+
+        return LithopsCopySpecExecutor()
     elif name.lower() == "pywren":
         from rechunker.executors.pywren import PywrenExecutor
 
@@ -609,7 +616,7 @@ def _setup_array_rechunk(
     except AttributeError:
         pass
 
-    if read_chunks == write_chunks or read_chunks == int_chunks:
+    if read_chunks == write_chunks:
         int_array = None
     else:
         # do intermediate store
