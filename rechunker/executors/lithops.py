@@ -1,10 +1,10 @@
-from typing import Callable
+from typing import Callable, Any
 
 import lithops
 
 from rechunker.types import ParallelPipelines, PipelineExecutor
 
-Task = Callable[[], None]
+Task = Callable[[Any], None]
 
 
 class LithopsPipelineExecutor(PipelineExecutor[Task]):
