@@ -6,6 +6,7 @@ from rechunker.types import ParallelPipelines, PipelineExecutor
 
 Task = Callable[[], None]
 
+
 class LithopsPipelineExecutor(PipelineExecutor[Task]):
     """An execution engine based on Lithops framework."""
 
@@ -24,19 +25,18 @@ class LithopsPipelineExecutor(PipelineExecutor[Task]):
                         iterdata.append((None, stage.function, pipeline.config))
             return iterdata
 
-        def plan(config):     
+        def plan(config):
             iterdata = _prepare_input_data()
 
             if config is None:
                 fexec = lithops.FunctionExecutor(config=config)
             else:
                 fexec = lithops.FunctionExecutor()
-                
+
             fexec.map(map_function, iterdata[0])
             fexec.get_result()
 
         return plan
 
-    def execute_plan(self, plan: Task, config = None, **kwargs):
+    def execute_plan(self, plan: Task, config=None, **kwargs):
         plan(config)
-        

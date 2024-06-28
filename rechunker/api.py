@@ -209,7 +209,9 @@ def _get_executor(name: str) -> CopySpecExecutor:
     elif name.lower() == "lithops":
         from rechunker.executors.lithops import LithopsPipelineExecutor
 
-        class LithopsCopySpecExecutor(LithopsPipelineExecutor, CopySpecToPipelinesMixin):
+        class LithopsCopySpecExecutor(
+            LithopsPipelineExecutor, CopySpecToPipelinesMixin
+        ):
             pass
 
         return LithopsCopySpecExecutor()
