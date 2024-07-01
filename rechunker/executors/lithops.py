@@ -28,7 +28,7 @@ class LithopsPipelineExecutor(PipelineExecutor[Task]):
         def plan(config):
             iterdata = _prepare_input_data()
 
-            if config is None:
+            if config is not None:
                 fexec = lithops.FunctionExecutor(config=config)
             else:
                 fexec = lithops.FunctionExecutor()
