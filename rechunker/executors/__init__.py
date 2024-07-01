@@ -15,3 +15,10 @@ try:
     __all__.append("PrefectPipelineExecutor")
 except ImportError:
     pass
+
+try:
+    from .lithops import LithopsPipelineExecutor
+
+    __all__.append("LithopsPipelineExecutor")
+except ImportError:
+    pass
