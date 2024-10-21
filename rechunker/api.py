@@ -1,4 +1,5 @@
 """User-facing functions."""
+
 import html
 import textwrap
 from collections import defaultdict
