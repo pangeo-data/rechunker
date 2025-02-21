@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Set, Tuple, Union
-from packaging.version import Version
+
 import dask
 from dask.blockwise import BlockwiseDepDict, blockwise
 from dask.delayed import Delayed
 from dask.highlevelgraph import HighLevelGraph
+from packaging.version import Version
 
 from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
 
-
 # Change in how dask collection token are given to blockwise()
-if Version(dask.__version__) >= Version('2024.12.0'):
+if Version(dask.__version__) >= Version("2024.12.0"):
     # TaskRef introduced in dask 2024.9
     from dask._task_spec import TaskRef
 else:
