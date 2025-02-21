@@ -259,13 +259,13 @@ def test_rechunk_dataset(
         thing_to_open = target_store
 
     # Validate encoded variables
-    dst = xarray.open_zarr(thing_to_open, decode_cf=False)
+    dst = xarray.open_zarr(thing_to_open, decode_cf=False, consolidated=False)
     assert dst.a.dtype == options["a"]["dtype"]
     assert all(dst.a.values[-1] == options["a"]["_FillValue"])
     assert dst.a.encoding["compressor"] is not None
 
     # Validate decoded variables
-    dst = xarray.open_zarr(thing_to_open, decode_cf=True)
+    dst = xarray.open_zarr(thing_to_open, decode_cf=True, consolidated=False)
     target_chunks_expected = (
         target_chunks["a"]
         if isinstance(target_chunks["a"], tuple)
@@ -325,7 +325,7 @@ def test_rechunk_dataset_dimchunks(
         rechunked.execute()
 
     # Validate decoded variables
-    dst = xarray.open_zarr(target_store, decode_cf=True)
+    dst = xarray.open_zarr(target_store, decode_cf=True, consolidated=False)
     target_chunks_expected = [
         target_chunks.get("x", source_chunks[0]),
         target_chunks.get("y", source_chunks[1]),
