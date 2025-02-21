@@ -5,7 +5,6 @@ from packaging.version import Version
 import dask
 from dask.blockwise import BlockwiseDepDict, blockwise
 from dask.delayed import Delayed
-from dask._task_spec import TaskRef as _TaskRef
 from dask.highlevelgraph import HighLevelGraph
 
 from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
@@ -13,7 +12,8 @@ from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
 
 # Change in how dask collection token are given to blockwise()
 if Version(dask.__version__) >= Version('2024.12.0'):
-    TaskRef = _TaskRef
+    # TaskRef introduced in dask 2024.9
+    from dask._task_spec import TaskRef
 else:
     TaskRef = lambda x: x
 
