@@ -721,7 +721,7 @@ def test_rechunk_invalid_option(rechunk_args):
         options = _wrap_options(rechunk_args["source"], {"chunks": 10})
         with pytest.raises(
             ValueError,
-            match="Chunks must be provided in ``target_chunks`` rather than options",
+            match="Chunks must be provided in 'target_chunks' rather than options",
         ):
             api.rechunk(**rechunk_args, target_options=options)
     else:
