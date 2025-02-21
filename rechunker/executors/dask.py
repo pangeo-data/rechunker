@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Set, Tuple, Union
-
+from packaging.version import Version
 import dask
 from dask.blockwise import BlockwiseDepDict, blockwise
 from dask.delayed import Delayed
+from dask._task_spec import TaskRef as _TaskRef
 from dask.highlevelgraph import HighLevelGraph
 
 from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
+
+
+# Change in how dask collection token are given to blockwise()
+if Version(dask.__version__) >= Version('2024.12.0'):
+    TaskRef = _TaskRef
+else:
+    TaskRef = lambda x: x
 
 
 def wrap_map_task(function):
@@ -79,9 +87,9 @@ def _make_pipeline(pipeline: Pipeline) -> Delayed:
                 BlockwiseDepDict({(i,): x for i, x in enumerate(stage.mappable)}),
                 # ^ this is extra annoying. `BlockwiseDepList` at least would be nice.
                 "x",
-                config_key,
+                TaskRef(config_key),
                 None,
-                prev_key,
+                TaskRef(prev_key),
                 None,
                 numblocks={},
                 # ^ also annoying; the default of None breaks Blockwise
