@@ -11,8 +11,11 @@ from packaging.version import Version
 from rechunker.types import ParallelPipelines, Pipeline, PipelineExecutor
 
 # Change in how dask collection token are given to blockwise()
-if Version(dask.__version__) >= Version("2024.12.0"):
-    # TaskRef introduced in dask 2024.9
+if Version(dask.__version__) >= Version("2025.1.0"):
+    # Public module exposed in 2025.1
+    from dask.task_spec import TaskRef
+elif Version(dask.__version__) >= Version("2024.12.0"):
+    # TaskRef introduced in dask 2024.9, but only necessary in block wise as of 2024.12
     from dask._task_spec import TaskRef
 else:
     TaskRef = lambda x: x
