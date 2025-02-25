@@ -3,7 +3,9 @@ Release Notes
 
 Unreleased
 ----------
-- Fix for to dask>=2014.12.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+- Fix for dask>=2024.12.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+- Fix for xarray>=2024.10.0 with datasets opened directly from disk. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 
 v0.5.1 - 2023-03-14
 -------------------

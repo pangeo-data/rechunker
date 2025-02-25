@@ -21,7 +21,7 @@ dynamic = [
 dependencies = [
   "dask[array,diagnostics]",
   "mypy_extensions",
-  "zarr>=2.11",
+  "zarr<3,>=2.11",
 ]
 [project.optional-dependencies]
 complete = [
@@ -37,7 +37,7 @@ dev = [
   "flake8",
   "hypothesis",
   "IPython",
-  "mypy==0.782",
+  "mypy",
   "nbsphinx",
   "numpydoc",
   "pytest",
