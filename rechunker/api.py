@@ -438,6 +438,8 @@ def _setup_rechunk(
                 raise ValueError(
                     f"Chunks must be provided in 'target_chunks' rather than options (variable={name})"
                 )
+            # Drop any leftover chunks encoding
+            variable.encoding.pop("chunks", None)
             variable.encoding.update(options)
             variable = encode_zarr_variable(variable)
 

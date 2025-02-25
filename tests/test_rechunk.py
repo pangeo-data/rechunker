@@ -232,6 +232,8 @@ def test_rechunk_dataset(
     xarray = pytest.importorskip("xarray")
 
     ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    # Emulate a dataset opened from a zarr on disk
+    ds['a'].encoding['chunks'] = source_chunks
     options = dict(
         a=dict(
             compressor=zarr.Blosc(cname="zstd"),
@@ -240,6 +242,7 @@ def test_rechunk_dataset(
             _FillValue=-9999,
         )
     )
+
     rechunked = api.rechunk(
         ds,
         target_chunks=target_chunks,
