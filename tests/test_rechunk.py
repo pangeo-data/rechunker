@@ -233,7 +233,7 @@ def test_rechunk_dataset(
 
     ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
     # Emulate a dataset opened from a zarr on disk
-    ds['a'].encoding['chunks'] = source_chunks
+    ds["a"].encoding["chunks"] = source_chunks
     options = dict(
         a=dict(
             compressor=zarr.Blosc(cname="zstd"),
