@@ -232,6 +232,8 @@ def test_rechunk_dataset(
     xarray = pytest.importorskip("xarray")
 
     ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
+    # Emulate a dataset opened from a zarr on disk
+    ds["a"].encoding["chunks"] = source_chunks
     options = dict(
         a=dict(
             compressor=zarr.Blosc(cname="zstd"),
@@ -240,6 +242,7 @@ def test_rechunk_dataset(
             _FillValue=-9999,
         )
     )
+
     rechunked = api.rechunk(
         ds,
         target_chunks=target_chunks,
@@ -259,13 +262,13 @@ def test_rechunk_dataset(
         thing_to_open = target_store
 
     # Validate encoded variables
-    dst = xarray.open_zarr(thing_to_open, decode_cf=False)
+    dst = xarray.open_zarr(thing_to_open, decode_cf=False, consolidated=False)
     assert dst.a.dtype == options["a"]["dtype"]
     assert all(dst.a.values[-1] == options["a"]["_FillValue"])
     assert dst.a.encoding["compressor"] is not None
 
     # Validate decoded variables
-    dst = xarray.open_zarr(thing_to_open, decode_cf=True)
+    dst = xarray.open_zarr(thing_to_open, decode_cf=True, consolidated=False)
     target_chunks_expected = (
         target_chunks["a"]
         if isinstance(target_chunks["a"], tuple)
@@ -325,7 +328,7 @@ def test_rechunk_dataset_dimchunks(
         rechunked.execute()
 
     # Validate decoded variables
-    dst = xarray.open_zarr(target_store, decode_cf=True)
+    dst = xarray.open_zarr(target_store, decode_cf=True, consolidated=False)
     target_chunks_expected = [
         target_chunks.get("x", source_chunks[0]),
         target_chunks.get("y", source_chunks[1]),
@@ -721,7 +724,7 @@ def test_rechunk_invalid_option(rechunk_args):
         options = _wrap_options(rechunk_args["source"], {"chunks": 10})
         with pytest.raises(
             ValueError,
-            match="Chunks must be provided in ``target_chunks`` rather than options",
+            match="Chunks must be provided in 'target_chunks' rather than options",
         ):
             api.rechunk(**rechunk_args, target_options=options)
     else:
