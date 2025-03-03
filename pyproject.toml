@@ -2,7 +2,7 @@
 build-backend = "setuptools.build_meta"
 requires = [
   "setuptools>=42",
-  "setuptools_scm[toml]>=3.4",
+  "setuptools-scm[toml]>=3.4",
   "wheel",
 ]
 
@@ -10,33 +10,41 @@ requires = [
 name = "rechunker"
 description = "A library for rechunking arrays"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 authors = [
-    {name = "Pangeo developers", email = "ryan.abernathey@gmail.com"},
+  { name = "Pangeo developers", email = "ryan.abernathey@gmail.com" },
 ]
 requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
 dynamic = [
   "version",
 ]
 dependencies = [
   "dask[array,diagnostics]",
-  "mypy_extensions",
-  "zarr<3,>=2.11",
+  "mypy-extensions",
+  "zarr>=2.11,<3",
 ]
-[project.optional-dependencies]
-complete = [
-  "apache_beam",
+optional-dependencies.complete = [
+  "apache-beam",
   "fsspec",
   "prefect<2",
   "pyyaml",
   "xarray>=2022.3",
 ]
-dev = [
+optional-dependencies.dev = [
   "black",
   "codecov",
   "flake8",
   "hypothesis",
-  "IPython",
+  "ipython",
   "mypy",
   "nbsphinx",
   "numpydoc",
@@ -46,25 +54,24 @@ dev = [
   "sphinx-pangeo-theme",
   "sphinxcontrib-srclinks",
 ]
-docs = [
-  "IPython",
+optional-dependencies.docs = [
+  "ipython",
   "nbsphinx",
   "numpydoc",
   "sphinx",
   "sphinx-pangeo-theme",
   "sphinxcontrib-srclinks",
 ]
-test = [
+optional-dependencies.test = [
   "hypothesis",
   "pytest",
 ]
-[project.urls]
-documentation = "https://rechunker.readthedocs.io"
-homepage = "https://pypi.org/project/rechunker/"
-repository = "https://github.com/pangeo-data/rechunker"
+urls.documentation = "https://rechunker.readthedocs.io"
+urls.homepage = "https://pypi.org/project/rechunker/"
+urls.repository = "https://github.com/pangeo-data/rechunker"
 
 [tool.setuptools]
-packages = ["rechunker"]
+packages = [ "rechunker" ]
 
 [tool.setuptools_scm]
 write_to = "rechunker/_version.py"
