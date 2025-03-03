@@ -19,7 +19,7 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "dask[array,diagnostics]",
+  "dask[array,diagnostics]==2024.12",
   "mypy_extensions",
   "zarr<3,>=2.11",
 ]
