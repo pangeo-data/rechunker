@@ -24,7 +24,7 @@ jobs:
           py.test tests -v --cov=rechunker --cov-config .coveragerc --cov-report term-missing
           coverage xml
       - name: Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
 
   min-dependencies:
     runs-on: ubuntu-latest
