@@ -1,11 +1,17 @@
 Release Notes
 =============
 
-Unreleased
-----------
+v0.5.3 - 2025-03-20
+-------------------
+
 - Fix for dask>=2024.12.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
 - Fix for xarray>=2024.10.0 with datasets opened directly from disk. By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
+v0.5.2 - 2023-08-12
+-------------------
+
+- Modernize the packaging of rechunker a bit. By `Filipe Fernandes <https://github.com/ocefpaf>`_.
+- Allow rechunking to groups. By `Ryan Abernathey <https://github.com/rabernat>`_.
 
 v0.5.1 - 2023-03-14
 -------------------
