@@ -40,9 +40,11 @@ Rechunking plans can be executed on a variety of backends. The following table l
    rechunker.executors.prefect.PrefectExecutor
    rechunker.executors.python.PythonExecutor
    rechunker.executors.pywren.PywrenExecutor
+   rechunker.executors.lithops.LithopsExecutor
 
 .. autoclass:: rechunker.executors.beam.BeamExecutor
 .. autoclass:: rechunker.executors.dask.DaskExecutor
 .. autoclass:: rechunker.executors.prefect.PrefectExecutor
 .. autoclass:: rechunker.executors.python.PythonExecutor
 .. autoclass:: rechunker.executors.pywren.PywrenExecutor
+.. autoclass:: rechunker.executors.lithops.LithopsExecutor
