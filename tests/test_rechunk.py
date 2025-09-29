@@ -9,7 +9,9 @@ import numpy
 import numpy as np
 import pytest
 import zarr
-from zarr.storage import FSStore
+from zarr.storage import LocalStore
+from zarr.codecs import BloscCodec, BytesCodec
+from zarr.codecs.blosc import BloscShuffle
 
 from rechunker import api
 
@@ -190,10 +192,10 @@ def test_get_dim_chunk(dask_chunks, chunk_ds, dim, target_chunks, expected):
 def target_store(tmp_path, request):
     if request.param == "mapper":
         pytest.importorskip("fsspec")
-        return FSStore(str(tmp_path) + "target.zarr")
+        return LocalStore(str(tmp_path) + "target.zarr")
     elif request.param == "group":
         pytest.importorskip("fsspec")
-        store = FSStore(str(tmp_path) + "group.target.zarr")
+        store = LocalStore(str(tmp_path) + "group.target.zarr")
         return zarr.group(store)
     else:
         return str(tmp_path / "mapper.target.zarr")
@@ -203,10 +205,10 @@ def target_store(tmp_path, request):
 def temp_store(tmp_path, request):
     if request.param == "mapper":
         pytest.importorskip("fsspec")
-        return FSStore(str(tmp_path) + "temp.zarr")
+        return LocalStore(str(tmp_path) + "temp.zarr")
     elif request.param == "group":
         pytest.importorskip("fsspec")
-        store = FSStore(str(tmp_path) + "group.temp.zarr")
+        store = LocalStore(str(tmp_path) + "group.temp.zarr")
         return zarr.group(store)
     else:
         return str(tmp_path / "mapper.temp.zarr")
@@ -236,7 +238,7 @@ def test_rechunk_dataset(
     ds["a"].encoding["chunks"] = source_chunks
     options = dict(
         a=dict(
-            compressor=zarr.Blosc(cname="zstd"),
+            codecs=[BytesCodec(), BloscCodec(cname="zstd")],
             dtype="int32",
             scale_factor=0.1,
             _FillValue=-9999,
@@ -265,7 +267,7 @@ def test_rechunk_dataset(
     dst = xarray.open_zarr(thing_to_open, decode_cf=False, consolidated=False)
     assert dst.a.dtype == options["a"]["dtype"]
     assert all(dst.a.values[-1] == options["a"]["_FillValue"])
-    assert dst.a.encoding["compressor"] is not None
+    assert dst.a.encoding.get("compressors") is not None
 
     # Validate decoded variables
     dst = xarray.open_zarr(thing_to_open, decode_cf=True, consolidated=False)
@@ -309,7 +311,7 @@ def test_rechunk_dataset_dimchunks(
     ds = example_dataset(shape).chunk(chunks=dict(zip(["x", "y"], source_chunks)))
     options = dict(
         a=dict(
-            compressor=zarr.Blosc(cname="zstd"),
+            codecs=[BytesCodec(), BloscCodec(cname="zstd")],
             dtype="int32",
             scale_factor=0.1,
             _FillValue=-9999,
@@ -496,7 +498,7 @@ def test_rechunk_dask_array(
 def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_store):
     if source_store.startswith("mapper"):
         pytest.importorskip("fsspec")
-        store_source = FSStore(str(tmp_path) + source_store)
+        store_source = LocalStore(str(tmp_path) + source_store)
     else:
         store_source = str(tmp_path / source_store)
 
@@ -504,9 +506,9 @@ def test_rechunk_group(tmp_path, executor, source_store, target_store, temp_stor
     group.create_group("foo/bar/baz")
 
     # 800 byte chunks
-    a = group.ones("a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
+    a = group.ones(name="a", shape=(5, 10, 20), chunks=(1, 10, 20), dtype="f4")
     a.attrs["description"] = "a array description"
-    b = group["foo/bar/baz"].ones("b", shape=(20,), chunks=(10,), dtype="f4")
+    b = group["foo/bar/baz"].ones(name="b", shape=(20,), chunks=(10,), dtype="f4")
     b.attrs["description"] = "b array description"
 
     # group attributes
@@ -580,9 +582,9 @@ def sample_zarr_group(tmp_path):
     group = zarr.group(path)
     group.attrs["foo"] = "bar"
     # 800 byte chunks
-    a = group.ones("a", shape=(10, 20, 40), chunks=(5, 10, 4), dtype="f4")
+    a = group.ones(name="a", shape=(10, 20, 40), chunks=(5, 10, 4), dtype="f4")
     a.attrs["foo"] = "bar"
-    b = group.ones("b", shape=(8000,), chunks=(200,), dtype="f4")
+    b = group.ones(name="b", shape=(8000,), chunks=(200,), dtype="f4")
     b.attrs["foo"] = "bar"
     return group
 
@@ -658,9 +660,9 @@ def _is_collection(source):
 
     assert isinstance(
         source,
-        (dask.array.Array, zarr.core.Array, zarr.hierarchy.Group, xarray.Dataset),
+        (dask.array.Array, zarr.Array, zarr.Group, xarray.Dataset),
     )
-    return isinstance(source, (zarr.hierarchy.Group, xarray.Dataset))
+    return isinstance(source, (zarr.Group, xarray.Dataset))
 
 
 def _wrap_options(source, options):
@@ -673,7 +675,12 @@ def test_rechunk_option_overwrite(rechunk_args):
     api.rechunk(**rechunk_args).execute()
     # TODO: make this match more reliable based on outcome of
     # https://github.com/zarr-developers/zarr-python/issues/605
-    with pytest.raises(ValueError, match=r"path .* contains an array"):
+    from zarr.errors import ContainsArrayError
+
+    with pytest.raises(
+        (ValueError, ContainsArrayError),
+        match=r"(path .* contains an array|An array exists)",
+    ):
         api.rechunk(**rechunk_args).execute()
     options = _wrap_options(rechunk_args["source"], dict(overwrite=True))
     api.rechunk(**rechunk_args, target_options=options).execute()
@@ -697,20 +704,26 @@ def test_rechunk_no_temp_dir_provided_error(rechunk_args):
 
 
 def test_rechunk_option_compression(rechunk_args):
-    def rechunk(compressor):
+    def rechunk(codecs):
         options = _wrap_options(
-            rechunk_args["source"], dict(overwrite=True, compressor=compressor)
+            rechunk_args["source"], dict(overwrite=True, codecs=codecs)
         )
         rechunked = api.rechunk(**rechunk_args, target_options=options)
         rechunked.execute()
-        return sum(
-            file.stat().st_size
-            for file in Path(rechunked._target.store.path).rglob("*")
-        )
 
-    size_uncompressed = rechunk(None)
+        store = rechunked._target.store
+        if hasattr(store, "root"):
+            store_path = store.root
+        elif hasattr(store, "path"):
+            store_path = store.path
+        else:
+            store_path = str(store)
+
+        return sum(file.stat().st_size for file in Path(store_path).rglob("*"))
+
+    size_uncompressed = rechunk([BytesCodec()])
     size_compressed = rechunk(
-        zarr.Blosc(cname="zstd", clevel=9, shuffle=zarr.Blosc.SHUFFLE)
+        [BytesCodec(), BloscCodec(cname="zstd", clevel=9, shuffle=BloscShuffle.shuffle)]
     )
     assert size_compressed < size_uncompressed
 

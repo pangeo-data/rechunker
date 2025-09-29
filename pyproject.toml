@@ -22,7 +22,7 @@ dependencies = [
   "dask[array,diagnostics]",
   "mypy_extensions",
   "packaging",
-  "zarr<3,>=2.11",
+  "zarr>=3.0.8,<4.0",
 ]
 [project.optional-dependencies]
 complete = [
@@ -31,7 +31,7 @@ complete = [
   "fsspec",
   "prefect<2",
   "pyyaml",
-  "xarray>=2022.3",
+  "xarray>=2024.3.0",
 ]
 dev = [
   "black",
