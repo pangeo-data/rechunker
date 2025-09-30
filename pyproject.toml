@@ -14,7 +14,7 @@ license = {file = "LICENSE"}
 authors = [
     {name = "Pangeo developers", email = "ryan.abernathey@gmail.com"},
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dynamic = [
   "version",
 ]
