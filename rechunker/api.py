@@ -688,9 +688,9 @@ def _setup_array_rechunk(
                 source_array.metadata, "dimension_names"
             ):
                 if source_array.metadata.dimension_names:
-                    temp_zarr_options["dimension_names"] = (
-                        source_array.metadata.dimension_names
-                    )
+                    temp_zarr_options[
+                        "dimension_names"
+                    ] = source_array.metadata.dimension_names
 
         int_array = _zarr_empty(
             shape,

@@ -9,9 +9,9 @@ import numpy
 import numpy as np
 import pytest
 import zarr
-from zarr.storage import LocalStore
 from zarr.codecs import BloscCodec, BytesCodec
 from zarr.codecs.blosc import BloscShuffle
+from zarr.storage import LocalStore
 
 from rechunker import api
 
