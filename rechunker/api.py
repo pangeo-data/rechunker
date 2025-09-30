@@ -1,4 +1,5 @@
 """User-facing functions."""
+
 import html
 import textwrap
 from collections import defaultdict
@@ -132,13 +133,28 @@ def _shape_dict_to_tuple(dims, shape_dict):
 def _get_dims_from_zarr_array(z_array):
     # use Xarray convention
     # http://xarray.pydata.org/en/stable/internals.html#zarr-encoding-specification
-    return z_array.attrs["_ARRAY_DIMENSIONS"]
+
+    if (
+        hasattr(z_array, "metadata")
+        and hasattr(z_array.metadata, "dimension_names")
+        and z_array.metadata.dimension_names
+    ):
+        return z_array.metadata.dimension_names
+
+    # Fall back to xarray convention
+    if "_ARRAY_DIMENSIONS" in z_array.attrs:
+        return z_array.attrs["_ARRAY_DIMENSIONS"]
+
+    raise KeyError(
+        "Could not read dimension names from metadata or attributes of Zarr array."
+    )
 
 
 def _encode_zarr_attributes(attrs):
     from xarray.backends.zarr import encode_zarr_attr_value
 
-    return {k: encode_zarr_attr_value(v) for k, v in attrs.items()}
+    filtered_attrs = _filter_attributes(attrs)
+    return {k: encode_zarr_attr_value(v) for k, v in filtered_attrs.items()}
 
 
 def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
@@ -146,7 +162,7 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
     if isinstance(store_or_group, zarr.Group):
         assert name is not None
         return store_or_group.empty(
-            name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
+            name=name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
         )
     else:
         # ignore name
@@ -156,7 +172,7 @@ def _zarr_empty(shape, store_or_group, chunks, dtype, name=None, **kwargs):
 
 
 ZARR_OPTIONS = [
-    "compressor",
+    "codecs",
     "filters",
     "order",
     "cache_metadata",
@@ -355,12 +371,19 @@ def parse_target_chunks_from_dim_chunks(ds, target_chunks):
 def _copy_group_attributes(source, target):
     """Visit every source group and create it on the target and move any attributes found."""
 
-    def _update_group_attrs(name):
-        if isinstance(source.get(name), zarr.Group):
-            group = target.create_group(name)
-            group.attrs.update(source.get(name).attrs)
+    def _update_group_attrs_recursive(src_group, tgt_group, path=""):
+        # Process all items in the current group
+        for name in src_group.keys():
+            full_path = f"{path}/{name}" if path else name
+            item = src_group[name]
+            if isinstance(item, zarr.Group):
+                # Create the subgroup in target and copy attributes
+                sub_target = tgt_group.create_group(name)
+                sub_target.attrs.update(item.attrs)
+                # Recursively process subgroups
+                _update_group_attrs_recursive(item, sub_target, full_path)
 
-    source.visit(_update_group_attrs)
+    _update_group_attrs_recursive(source, target)
 
 
 def _setup_rechunk(
@@ -476,13 +499,15 @@ def _setup_rechunk(
                 temp_store_or_group=temp_group,
                 temp_options=options,
                 name=name,
+                dimension_names=variable.dims,
             )
-            copy_spec.write.array.attrs.update(variable_attrs)  # type: ignore
+
+            copy_spec.write.array.attrs.update(_filter_attributes(variable_attrs))
             copy_specs.append(copy_spec)
 
         return copy_specs, temp_group, target_group
 
-    elif isinstance(source, zarr.hierarchy.Group):
+    elif isinstance(source, zarr.Group):
         if not isinstance(target_chunks, dict):
             raise ValueError(
                 "You must specify ``target-chunks`` as a dict when rechunking a group."
@@ -521,7 +546,7 @@ def _setup_rechunk(
 
         return copy_specs, temp_group, target_group
 
-    elif isinstance(source, (zarr.core.Array, dask.array.Array)):
+    elif isinstance(source, (zarr.Array, dask.array.Array)):
         if (
             isinstance(target_store, zarr.Group) or isinstance(temp_store, zarr.Group)
         ) and array_name is None:
@@ -547,6 +572,22 @@ def _setup_rechunk(
         )
 
 
+def _filter_attributes(attrs):
+    """
+    Remove any attributes that are NaN. These cause errors when
+    written to the Zarr stores
+    """
+    import numpy as np
+
+    filtered_attrs = {}
+    for k, v in attrs.items():
+        if isinstance(v, (float, np.floating)) and np.isnan(v):
+            continue
+        filtered_attrs[k] = v
+
+    return filtered_attrs
+
+
 def _setup_array_rechunk(
     source_array,
     target_chunks,
@@ -556,6 +597,7 @@ def _setup_array_rechunk(
     temp_store_or_group=None,
     temp_options=None,
     name=None,
+    dimension_names=None,
 ) -> CopySpec:
     _validate_options(target_options)
     _validate_options(temp_options)
@@ -586,7 +628,7 @@ def _setup_array_rechunk(
     max_mem = dask.utils.parse_bytes(max_mem)
 
     # don't consolidate reads for Dask arrays
-    consolidate_reads = isinstance(source_array, zarr.core.Array)
+    consolidate_reads = isinstance(source_array, zarr.Array)
     read_chunks, int_chunks, write_chunks = rechunking_plan(
         shape,
         source_chunks,
@@ -602,16 +644,27 @@ def _setup_array_rechunk(
     int_chunks = tuple(int(x) for x in int_chunks)
     write_chunks = tuple(int(x) for x in write_chunks)
 
+    zarr_options = target_options or {}
+    if dimension_names is not None:
+        zarr_options["dimension_names"] = dimension_names
+    elif isinstance(source_array, zarr.Array):
+        # If source is a zarr array with dimension_names, preserve them
+        if hasattr(source_array, "metadata") and hasattr(
+            source_array.metadata, "dimension_names"
+        ):
+            if source_array.metadata.dimension_names:
+                zarr_options["dimension_names"] = source_array.metadata.dimension_names
+
     target_array = _zarr_empty(
         shape,
         target_store_or_group,
         target_chunks,
         dtype,
         name=name,
-        **(target_options or {}),
+        **zarr_options,
     )
     try:
-        target_array.attrs.update(source_array.attrs)
+        target_array.attrs.update(_filter_attributes(source_array.attrs))
     except AttributeError:
         pass
 
@@ -625,13 +678,27 @@ def _setup_array_rechunk(
                     f" (array={name})" if name else ""
                 )
             )
+        # Add dimension_names to temp options if provided
+        temp_zarr_options = temp_options or {}
+        if dimension_names is not None:
+            temp_zarr_options["dimension_names"] = dimension_names
+        elif isinstance(source_array, zarr.Array):
+            # If source is a zarr array with dimension_names, preserve them
+            if hasattr(source_array, "metadata") and hasattr(
+                source_array.metadata, "dimension_names"
+            ):
+                if source_array.metadata.dimension_names:
+                    temp_zarr_options[
+                        "dimension_names"
+                    ] = source_array.metadata.dimension_names
+
         int_array = _zarr_empty(
             shape,
             temp_store_or_group,
             int_chunks,
             dtype,
             name=name,
-            **(temp_options or {}),
+            **temp_zarr_options,
         )
 
     read_proxy = ArrayProxy(source_array, read_chunks)
