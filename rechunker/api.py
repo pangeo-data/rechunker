@@ -1,4 +1,5 @@
 """User-facing functions."""
+
 import html
 import textwrap
 from collections import defaultdict
@@ -93,8 +94,7 @@ class Rechunked:
                 body = f"<p><code>{html.escape(repr(self._target))}</code></p>"
             entries[f"{kind}_html"] = body
 
-        template = textwrap.dedent(
-            """<h2>Rechunked</h2>\
+        template = textwrap.dedent("""<h2>Rechunked</h2>\
 
         <details>
           <summary><b>Source</b></summary>
@@ -105,18 +105,15 @@ class Rechunked:
           <summary><b>Target</b></summary>
           {{target_html}}
         </details>
-        """
-        )
+        """)
 
         if self._intermediate is not None:
-            intermediate = textwrap.dedent(
-                """\
+            intermediate = textwrap.dedent("""\
                 <details>
                 <summary><b>Intermediate</b></summary>
                 {intermediate_html}
                 </details>
-            """
-            )
+            """)
         else:
             intermediate = ""
         template = template.format(intermediate)
