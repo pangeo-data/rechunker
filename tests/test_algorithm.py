@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `rechunker` package."""
+
 import warnings
 from math import prod
 from unittest.mock import patch
